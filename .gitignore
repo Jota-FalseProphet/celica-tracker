@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+*.log
+last_run.log
+alert.log
+systemd.log

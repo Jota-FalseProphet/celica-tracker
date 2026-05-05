@@ -1,0 +1,948 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Toyota Celica · mercado España</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, system-ui, sans-serif;
+         background: #0f0f12; color: #eee; padding: 24px; max-width: 1280px; margin: 0 auto; }
+  h1 { margin: 0 0 4px; font-size: 28px; }
+  .sub { color: #888; margin-bottom: 24px; font-size: 14px; }
+  .stats { display: flex; gap: 12px; margin-bottom: 24px; flex-wrap: wrap; }
+  .stat { background: #1a1a20; border-radius: 12px; padding: 16px 20px; flex: 1; min-width: 140px;
+          border: 1px solid #2a2a32; }
+  .stat .num { display: block; font-size: 28px; font-weight: 700; color: #ff5252; }
+  .stat .lbl { display: block; font-size: 12px; color: #888; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .grid { display: grid; grid-template-columns: 1.5fr 1fr; gap: 20px; margin-bottom: 24px; }
+  .panel { background: #1a1a20; border-radius: 12px; padding: 20px; border: 1px solid #2a2a32; }
+  .panel h2 { margin: 0 0 16px; font-size: 16px; color: #aaa; text-transform: uppercase; letter-spacing: 1px; }
+  canvas { max-height: 360px; }
+  section h2 { font-size: 14px; color: #888; text-transform: uppercase; letter-spacing: 1px; margin: 32px 0 12px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
+  .card { background: #1a1a20; border: 1px solid #2a2a32; border-radius: 10px; padding: 14px;
+          text-decoration: none; color: inherit; transition: all 0.15s;
+          display: block; }
+  .card:hover { transform: translateY(-2px); border-color: #ff5252; background: #1f1a1a; }
+  .card.target { border-color: #ff5252; background: linear-gradient(135deg, #2a1a1a, #1a1a20); }
+  .card.t230 { border-color: #4a9eff44; }
+  .card .price { font-size: 22px; font-weight: 700; color: #ff5252; }
+  .card.t230 .price { color: #4a9eff; }
+  .card.other .price { color: #aaa; }
+  .card .meta { font-size: 14px; margin: 6px 0 4px; color: #ddd; }
+  .card .meta .year { background: #ff525222; padding: 2px 8px; border-radius: 4px; font-weight: 600; }
+  .card.t230 .meta .year { background: #4a9eff22; }
+  .card.other .meta .year { background: #ffffff11; }
+  .card .sub { font-size: 12px; color: #888; margin: 0; }
+  .src { font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-left: 8px; vertical-align: middle; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
+  .src-autoscout24 { background: #ffcc00; color: #000; }
+  .src-wallapop { background: #00d4ff; color: #000; }
+  .src-coches { background: #f44; color: #fff; }
+  .toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+  .refresh-btn { background: linear-gradient(135deg, #ff5252, #ff7752); color: #fff; border: 0;
+                 padding: 12px 22px; border-radius: 10px; cursor: pointer; font-weight: 700;
+                 font-size: 14px; letter-spacing: 0.3px; transition: all 0.15s;
+                 box-shadow: 0 4px 14px #ff525233; }
+  .refresh-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 20px #ff525266; }
+  .refresh-btn:disabled { background: #444; cursor: wait; box-shadow: none; opacity: 0.7; }
+  .refresh-btn .spin { display: inline-block; animation: spin 1s linear infinite; }
+  .ghost-btn { background: #2a2a32; color: #ddd; border: 1px solid #3a3a44;
+               padding: 12px 18px; border-radius: 10px; cursor: pointer; font-weight: 600;
+               font-size: 13px; transition: all 0.15s; }
+  .ghost-btn:hover:not(:disabled) { background: #1f2a1f; border-color: #4ade80; color: #4ade80; }
+  .ghost-btn.danger:hover:not(:disabled) { background: #3a2a2a; border-color: #ff5252; color: #ff7777; }
+  .ghost-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+  .modal-bg { position: fixed; inset: 0; background: #000a; display: none; align-items: center;
+              justify-content: center; z-index: 100; }
+  .modal-bg.active { display: flex; }
+  .modal { background: #14141a; border: 1px solid #2a2a32; border-radius: 12px; padding: 22px;
+           max-width: 480px; width: calc(100% - 40px); box-shadow: 0 12px 40px #000c; }
+  .modal h3 { margin: 0 0 8px; font-size: 16px; }
+  .modal p { margin: 0 0 14px; color: #aaa; font-size: 13px; line-height: 1.5; }
+  .modal code { display: block; background: #0a0a0d; border: 1px solid #2a2a32; padding: 10px 14px;
+                border-radius: 8px; font-family: ui-monospace, Menlo, monospace; font-size: 13px;
+                color: #ffcc00; margin-bottom: 12px; word-break: break-all; }
+  .modal .row { display: flex; gap: 8px; justify-content: flex-end; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .refresh-hint { color: #777; font-size: 12px; }
+  .logs-panel { position: fixed; top: 16px; right: 16px; width: 380px; max-height: calc(100vh - 32px);
+                background: #0a0a0d; border: 1px solid #2a2a32; border-radius: 12px;
+                box-shadow: 0 8px 32px #000a; display: none; flex-direction: column;
+                z-index: 50; overflow: hidden; }
+  .logs-panel.active { display: flex; }
+  .logs-head { display: flex; align-items: center; justify-content: space-between;
+               padding: 10px 14px; border-bottom: 1px solid #2a2a32; background: #14141a; }
+  .logs-head .title { font-size: 12px; color: #aaa; text-transform: uppercase; letter-spacing: 1px; font-weight: 600; }
+  .logs-head .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+                    background: #555; margin-right: 8px; vertical-align: middle; }
+  .logs-head .dot.live { background: #4ade80; box-shadow: 0 0 8px #4ade80; animation: pulse 1.2s ease-in-out infinite; }
+  .logs-head .dot.ok   { background: #4ade80; }
+  .logs-head .dot.err  { background: #ff5252; }
+  @keyframes pulse { 50% { opacity: 0.4; } }
+  .logs-head .close { background: none; border: 0; color: #888; font-size: 18px; cursor: pointer; padding: 0 4px; }
+  .logs-head .close:hover { color: #fff; }
+  .refresh-log { font-family: ui-monospace, Menlo, monospace; font-size: 12px; color: #bbb;
+                 padding: 12px 14px; overflow-y: auto; white-space: pre-wrap; line-height: 1.5;
+                 flex: 1; min-height: 80px; }
+  @media (max-width: 1100px) {
+    .logs-panel { position: static; width: auto; max-height: 280px; margin-bottom: 20px;
+                  box-shadow: none; }
+  }
+  footer { margin-top: 40px; color: #555; font-size: 12px; text-align: center; }
+</style>
+</head>
+<body>
+<h1>🏎️ Toyota Celica · mercado España</h1>
+<div class="sub">Última actualización: 2026-05-05 · 91 anuncios · autoscout24: 60 · wallapop: 31</div>
+
+<div class="toolbar">
+  <button id="refresh-btn" class="refresh-btn" onclick="doRefresh()">↻ Refrescar ahora</button>
+  <button id="power-btn" class="ghost-btn" onclick="doPower()">⏻ Apagar server</button>
+  <span id="refresh-hint" class="refresh-hint"></span>
+</div>
+<div id="modal-bg" class="modal-bg" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <h3>Arrancar el server</h3>
+    <p>El navegador no puede lanzar procesos. Ejecuta esto en una terminal y se abrirá automáticamente cuando esté listo:</p>
+    <code id="modal-cmd">python3 /home/jota/cosasJota/celica-tracker/serve.py</code>
+    <div class="row">
+      <button class="ghost-btn" onclick="copyCmd(event)">📋 Copiar</button>
+      <button class="ghost-btn" onclick="closeModal()">Cerrar</button>
+    </div>
+  </div>
+</div>
+<aside id="logs-panel" class="logs-panel">
+  <div class="logs-head">
+    <span><span id="logs-dot" class="dot"></span><span id="logs-title" class="title">Logs</span></span>
+    <button class="close" onclick="document.getElementById('logs-panel').classList.remove('active')" title="Cerrar">×</button>
+  </div>
+  <div id="refresh-log" class="refresh-log"></div>
+</aside>
+
+<div class="stats">
+        <div class="stat"><span class="num">36</span><span class="lbl">anuncios 2002-2006</span></div>
+        <div class="stat"><span class="num">450€</span><span class="lbl">más barato</span></div>
+        <div class="stat"><span class="num">6.000€</span><span class="lbl">mediana</span></div>
+        <div class="stat"><span class="num">11.990€</span><span class="lbl">más caro</span></div>
+        </div>
+
+<div class="grid">
+  <div class="panel"><h2>Precio vs kilómetros</h2><canvas id="scatter"></canvas></div>
+  <div class="panel"><h2>Histórico mediana 2002-2006</h2><canvas id="history"></canvas></div>
+</div>
+
+<section>
+<h2>🎯 Rango objetivo 2002-2006 (36)</h2>
+<div class="cards"><a class="card target" href="https://es.wallapop.com/item/toyota-celica-2005-1219744955" target="_blank">
+            <div class="price">450€<span class="src src-wallapop">wallapop</span></div>
+            <div class="meta">
+                <span class="year">2005</span> ·
+                <span>Escape artesanal Don silencioso Toyota Celica 2005</span>
+            </div>
+            <div class="sub">? · ? km · </div>
+        </a><a class="card target" href="https://es.wallapop.com/item/toyota-celica-2002-1259391493" target="_blank">
+            <div class="price">1.750€<span class="src src-wallapop">wallapop</span></div>
+            <div class="meta">
+                <span class="year">2002</span> ·
+                <span>Toyota Celica 2002</span>
+            </div>
+            <div class="sub">? · 295k km · </div>
+        </a><a class="card target" href="https://es.wallapop.com/item/toyota-celica-2004-1164897417" target="_blank">
+            <div class="price">3.000€<span class="src src-wallapop">wallapop</span></div>
+            <div class="meta">
+                <span class="year">2004</span> ·
+                <span>Toyota Celica 2004</span>
+            </div>
+            <div class="sub">? · ? km · </div>
+        </a><a class="card target" href="https://es.wallapop.com/item/toyota-celica-2002-1254952125" target="_blank">
+            <div class="price">3.990€<span class="src src-wallapop">wallapop</span></div>
+            <div class="meta">
+                <span class="year">2002</span> ·
+                <span>Toyota Celica 2002</span>
+            </div>
+            <div class="sub">? · 100k km · </div>
+        </a><a class="card target" href="https://es.wallapop.com/item/toyota-celica-2003-1258767370" target="_blank">
+            <div class="price">4.000€<span class="src src-wallapop">wallapop</span></div>
+            <div class="meta">
+                <span class="year">2003</span> ·
+                <span>Toyota Celica 2003</span>
+            </div>
+            <div class="sub">? · 160k km · </div>
+        </a><a class="card target" href="https://es.wallapop.com/item/toyota-celica-2003-1209425616" target="_blank">
+            <div class="price">4.300€<span class="src src-wallapop">wallapop</span></div>
+            <div class="meta">
+                <span class="year">2003</span> ·
+                <span>Toyota Celica 2003</span>
+            </div>
+            <div class="sub">? · 260k km · </div>
+        </a><a class="card target" href="https://es.wallapop.com/item/toyota-celica-2003-1227432309" target="_blank">
+            <div class="price">4.499€<span class="src src-wallapop">wallapop</span></div>
+            <div class="meta">
+                <span class="year">2003</span> ·
+                <span>TOYOTA CELICA ETIQUETA MEDIOAMBIENTAL B 🟡</span>
+            </div>
+            <div class="sub">? · 160k km · </div>
+        </a><a class="card target" href="https://es.wallapop.com/item/toyota-celica-2004-1241134283" target="_blank">
+            <div class="price">4.500€<span class="src src-wallapop">wallapop</span></div>
+            <div class="meta">
+                <span class="year">2004</span> ·
+                <span>Toyota Celica 2004</span>
+            </div>
+            <div class="sub">? · 320k km · </div>
+        </a><a class="card target" href="https://es.wallapop.com/item/toyota-celica-2005-1024930281" target="_blank">
+            <div class="price">4.500€<span class="src src-wallapop">wallapop</span></div>
+            <div class="meta">
+                <span class="year">2005</span> ·
+                <span>Toyota Celica 2005</span>
+            </div>
+            <div class="sub">? · 300k km · </div>
+        </a><a class="card target" href="https://www.autoscout24.es/anuncios/toyota-celica-celica-1-8-gasolina-eecee05a-8722-4fa3-ba08-68a3c143b5c0" target="_blank">
+            <div class="price">4.999€<span class="src src-autoscout24">autoscout24</span></div>
+            <div class="meta">
+                <span class="year">2003</span> ·
+                <span>Celica 1.8</span>
+            </div>
+            <div class="sub">Cuevas Del Almanzora · 260k km · Gasolina</div>
+        </a><a class="card target" href="https://www.autoscout24.es/anuncios/toyota-celica-celica-1-8-gasolina-eecee05a-8722-4fa3-ba08-68a3c143b5c0" target="_blank">
+            <div class="price">4.999€<span class="src src-autoscout24">autoscout24</span></div>
+            <div class="meta">
+                <span class="year">2003</span> ·
+                <span>Celica 1.8</span>
+            </div>
+            <div class="sub">Cuevas Del Almanzora · 260k km · Gasolina</div>
+        </a><a class="card target" href="https://www.autoscout24.es/anuncios/toyota-celica-celica-1-8-gasolina-eecee05a-8722-4fa3-ba08-68a3c143b5c0" target="_blank">
+            <div class="price">4.999€<span class="src src-autoscout24">autoscout24</span></div>
+            <div class="meta">
+                <span class="year">2003</span> ·
+                <span>Celica 1.8</span>
+            </div>
+            <div class="sub">Cuevas Del Almanzora · 260k km · Gasolina</div>
+        </a><a class="card target" href="https://es.wallapop.com/item/toyota-celica-t23-1259198565" target="_blank">
+            <div class="price">5.000€<span class="src src-wallapop">wallapop</span></div>
+            <div class="meta">
+                <span class="year">2004</span> ·
+                <span>Toyota Celica T23</span>
+            </div>
+            <div class="sub">? · 146k km · </div>
+        </a><a class="card target" href="https://es.wallapop.com/item/toyota-celica-2003-1233140808" target="_blank">
+            <div class="price">5.000€<span class="src src-wallapop">wallapop</span></div>
+            <div class="meta">
+                <span class="year">2003</span> ·
+                <span>Toyota Celica 2003</span>
+            </div>
+            <div class="sub">? · 230k km · </div>
+        </a><a class="card target" href="https://es.wallapop.com/item/toyota-celica-2004-1238013061" target="_blank">
+            <div class="price">5.400€<span class="src src-wallapop">wallapop</span></div>
+            <div class="meta">
+                <span class="year">2004</span> ·
+                <span>Toyota Celica 2004</span>
+            </div>
+            <div class="sub">? · 250k km · </div>
+        </a><a class="card target" href="https://es.wallapop.com/item/toyota-celica-2003-1250443310" target="_blank">
+            <div class="price">5.800€<span class="src src-wallapop">wallapop</span></div>
+            <div class="meta">
+                <span class="year">2003</span> ·
+                <span>Toyota Celica 2003</span>
+            </div>
+            <div class="sub">? · 402k km · </div>
+        </a><a class="card target" href="https://es.wallapop.com/item/toyota-celica-2003-1252175560" target="_blank">
+            <div class="price">5.850€<span class="src src-wallapop">wallapop</span></div>
+            <div class="meta">
+                <span class="year">2003</span> ·
+                <span>Toyota Celica 2003</span>
+            </div>
+            <div class="sub">? · 174k km · </div>
+        </a><a class="card target" href="https://es.wallapop.com/item/toyota-celica-2002-1223453316" target="_blank">
+            <div class="price">6.000€<span class="src src-wallapop">wallapop</span></div>
+            <div class="meta">
+                <span class="year">2002</span> ·
+                <span>toyota celica tuning</span>
+            </div>
+            <div class="sub">? · 180k km · </div>
+        </a><a class="card target" href="https://es.wallapop.com/item/toyota-celica-2005-1014003197" target="_blank">
+            <div class="price">6.000€<span class="src src-wallapop">wallapop</span></div>
+            <div class="meta">
+                <span class="year">2003</span> ·
+                <span>Toyota Celica 2003</span>
+            </div>
+            <div class="sub">? · 270k km · </div>
+        </a><a class="card target" href="https://es.wallapop.com/item/toyota-celica-vvti-2005-1231733796" target="_blank">
+            <div class="price">6.800€<span class="src src-wallapop">wallapop</span></div>
+            <div class="meta">
+                <span class="year">2005</span> ·
+                <span>Toyota célica vvti 2005</span>
+            </div>
+            <div class="sub">? · 240k km · </div>
+        </a><a class="card target" href="https://www.autoscout24.es/anuncios/toyota-celica-celica-1-8-gasolina-negro-9faa39e3-63ed-49ef-b1f5-c89f58d07552" target="_blank">
+            <div class="price">7.000€<span class="src src-autoscout24">autoscout24</span></div>
+            <div class="meta">
+                <span class="year">2005</span> ·
+                <span>Celica 1.8</span>
+            </div>
+            <div class="sub">València · 220k km · Gasolina</div>
+        </a><a class="card target" href="https://es.wallapop.com/item/toyota-celica-2002-1243834711" target="_blank">
+            <div class="price">7.000€<span class="src src-wallapop">wallapop</span></div>
+            <div class="meta">
+                <span class="year">2002</span> ·
+                <span>Toyota Celica 2002</span>
+            </div>
+            <div class="sub">? · 215k km · </div>
+        </a><a class="card target" href="https://es.wallapop.com/item/toyota-celica-con-gas-glp-190-000-km-1178795416" target="_blank">
+            <div class="price">7.000€<span class="src src-wallapop">wallapop</span></div>
+            <div class="meta">
+                <span class="year">2004</span> ·
+                <span>Toyota Celica 2004</span>
+            </div>
+            <div class="sub">? · 193k km · </div>
+        </a><a class="card target" href="https://www.autoscout24.es/anuncios/toyota-celica-celica-1-8-gasolina-negro-9faa39e3-63ed-49ef-b1f5-c89f58d07552" target="_blank">
+            <div class="price">7.000€<span class="src src-autoscout24">autoscout24</span></div>
+            <div class="meta">
+                <span class="year">2005</span> ·
+                <span>Celica 1.8</span>
+            </div>
+            <div class="sub">València · 220k km · Gasolina</div>
+        </a><a class="card target" href="https://www.autoscout24.es/anuncios/toyota-celica-celica-1-8-gasolina-negro-9faa39e3-63ed-49ef-b1f5-c89f58d07552" target="_blank">
+            <div class="price">7.000€<span class="src src-autoscout24">autoscout24</span></div>
+            <div class="meta">
+                <span class="year">2005</span> ·
+                <span>Celica 1.8</span>
+            </div>
+            <div class="sub">València · 220k km · Gasolina</div>
+        </a><a class="card target" href="https://es.wallapop.com/item/toyota-celica-2003-1111803425" target="_blank">
+            <div class="price">7.000€<span class="src src-wallapop">wallapop</span></div>
+            <div class="meta">
+                <span class="year">2003</span> ·
+                <span>Toyota Celica 2003</span>
+            </div>
+            <div class="sub">? · 181k km · </div>
+        </a><a class="card target" href="https://es.wallapop.com/item/toyota-celica-2004-1246948905" target="_blank">
+            <div class="price">7.500€<span class="src src-wallapop">wallapop</span></div>
+            <div class="meta">
+                <span class="year">2004</span> ·
+                <span>Toyota Celica 2004</span>
+            </div>
+            <div class="sub">? · 170k km · </div>
+        </a><a class="card target" href="https://es.wallapop.com/item/toyota-celica-1252959062" target="_blank">
+            <div class="price">7.800€<span class="src src-wallapop">wallapop</span></div>
+            <div class="meta">
+                <span class="year">2002</span> ·
+                <span>Toyota celica 7 g</span>
+            </div>
+            <div class="sub">? · 232k km · </div>
+        </a><a class="card target" href="https://es.wallapop.com/item/toyota-celica-143-cv-1-8-vvt-i-1245575631" target="_blank">
+            <div class="price">7.999€<span class="src src-wallapop">wallapop</span></div>
+            <div class="meta">
+                <span class="year">2005</span> ·
+                <span>Toyota Celica 143 cv, 1.8 VVT-i</span>
+            </div>
+            <div class="sub">? · 309k km · </div>
+        </a><a class="card target" href="https://es.wallapop.com/item/celica-toyota-celica-vvtli-2003-920076338" target="_blank">
+            <div class="price">8.000€<span class="src src-wallapop">wallapop</span></div>
+            <div class="meta">
+                <span class="year">2003</span> ·
+                <span>Celica Toyota celica vvtli 2003 192cv</span>
+            </div>
+            <div class="sub">? · 170k km · </div>
+        </a><a class="card target" href="https://es.wallapop.com/item/toyota-celica-2005-969395431" target="_blank">
+            <div class="price">9.000€<span class="src src-wallapop">wallapop</span></div>
+            <div class="meta">
+                <span class="year">2005</span> ·
+                <span>Toyota Celica 2005</span>
+            </div>
+            <div class="sub">? · 185k km · </div>
+        </a><a class="card target" href="https://es.wallapop.com/item/toyota-celica-2004-1242655929" target="_blank">
+            <div class="price">9.200€<span class="src src-wallapop">wallapop</span></div>
+            <div class="meta">
+                <span class="year">2004</span> ·
+                <span>Toyota Celica 2004</span>
+            </div>
+            <div class="sub">? · 170k km · </div>
+        </a><a class="card target" href="https://es.wallapop.com/item/toyota-celica-2003-1258456451" target="_blank">
+            <div class="price">9.500€<span class="src src-wallapop">wallapop</span></div>
+            <div class="meta">
+                <span class="year">2003</span> ·
+                <span>Toyota Celica 2003</span>
+            </div>
+            <div class="sub">? · 200k km · </div>
+        </a><a class="card target" href="https://es.wallapop.com/item/toyota-celica-2004-1022925334" target="_blank">
+            <div class="price">10.000€<span class="src src-wallapop">wallapop</span></div>
+            <div class="meta">
+                <span class="year">2004</span> ·
+                <span>Toyota Celica Turbo LEER DESCRIPCION</span>
+            </div>
+            <div class="sub">? · 20k km · </div>
+        </a><a class="card target" href="https://es.wallapop.com/item/toyota-celica-2003-1199906793" target="_blank">
+            <div class="price">10.500€<span class="src src-wallapop">wallapop</span></div>
+            <div class="meta">
+                <span class="year">2003</span> ·
+                <span>Toyota Celica 2003</span>
+            </div>
+            <div class="sub">? · 185k km · </div>
+        </a><a class="card target" href="https://es.wallapop.com/item/toyota-celica-89-000km-2005-143cv-1252654296" target="_blank">
+            <div class="price">11.990€<span class="src src-wallapop">wallapop</span></div>
+            <div class="meta">
+                <span class="year">2005</span> ·
+                <span>Toyota Celica 89.000KM 2005 143CV</span>
+            </div>
+            <div class="sub">? · 89k km · </div>
+        </a></div>
+</section>
+
+<section>
+<h2>🔵 Resto T230 (2000-2006) · contexto generacional (7)</h2>
+<div class="cards"><a class="card t230" href="https://es.wallapop.com/item/toyota-celica-2005-1062287403" target="_blank">
+            <div class="price">2.000€<span class="src src-wallapop">wallapop</span></div>
+            <div class="meta">
+                <span class="year">2000</span> ·
+                <span>Toyota Celica 2005</span>
+            </div>
+            <div class="sub">? · 220k km · </div>
+        </a><a class="card t230" href="https://www.autoscout24.es/anuncios/toyota-celica-1-8-vvt-1-gasolina-gris-5f7717c0-4e92-4a59-86ad-5167e68b6c47" target="_blank">
+            <div class="price">5.000€<span class="src src-autoscout24">autoscout24</span></div>
+            <div class="meta">
+                <span class="year">2000</span> ·
+                <span>1.8 VVT-1</span>
+            </div>
+            <div class="sub">MADRID · 184k km · Gasolina</div>
+        </a><a class="card t230" href="https://www.autoscout24.es/anuncios/toyota-celica-1-8-vvt-1-gasolina-gris-5f7717c0-4e92-4a59-86ad-5167e68b6c47" target="_blank">
+            <div class="price">5.000€<span class="src src-autoscout24">autoscout24</span></div>
+            <div class="meta">
+                <span class="year">2000</span> ·
+                <span>1.8 VVT-1</span>
+            </div>
+            <div class="sub">MADRID · 184k km · Gasolina</div>
+        </a><a class="card t230" href="https://www.autoscout24.es/anuncios/toyota-celica-1-8-vvt-1-gasolina-gris-5f7717c0-4e92-4a59-86ad-5167e68b6c47" target="_blank">
+            <div class="price">5.000€<span class="src src-autoscout24">autoscout24</span></div>
+            <div class="meta">
+                <span class="year">2000</span> ·
+                <span>1.8 VVT-1</span>
+            </div>
+            <div class="sub">MADRID · 184k km · Gasolina</div>
+        </a><a class="card t230" href="https://www.autoscout24.es/anuncios/toyota-celica-1-8-vvt-1-gasolina-8dfa460b-502d-4cac-b9fd-095453e14046" target="_blank">
+            <div class="price">6.000€<span class="src src-autoscout24">autoscout24</span></div>
+            <div class="meta">
+                <span class="year">2001</span> ·
+                <span>1.8 VVT-1</span>
+            </div>
+            <div class="sub">tias · 270k km · Gasolina</div>
+        </a><a class="card t230" href="https://www.autoscout24.es/anuncios/toyota-celica-1-8-vvt-1-gasolina-8dfa460b-502d-4cac-b9fd-095453e14046" target="_blank">
+            <div class="price">6.000€<span class="src src-autoscout24">autoscout24</span></div>
+            <div class="meta">
+                <span class="year">2001</span> ·
+                <span>1.8 VVT-1</span>
+            </div>
+            <div class="sub">tias · 270k km · Gasolina</div>
+        </a><a class="card t230" href="https://www.autoscout24.es/anuncios/toyota-celica-1-8-vvt-1-gasolina-8dfa460b-502d-4cac-b9fd-095453e14046" target="_blank">
+            <div class="price">6.000€<span class="src src-autoscout24">autoscout24</span></div>
+            <div class="meta">
+                <span class="year">2001</span> ·
+                <span>1.8 VVT-1</span>
+            </div>
+            <div class="sub">tias · 270k km · Gasolina</div>
+        </a></div>
+</section>
+
+<section>
+<h2>⚪ Otras Celicas en España (45)</h2>
+<div class="cards"><a class="card other" href="https://www.autoscout24.es/anuncios/toyota-celica-1-8-16v-st-gasolina-5404b0b7-d9b2-4a19-a8ad-3e404d1ca3da" target="_blank">
+            <div class="price">4.000€<span class="src src-autoscout24">autoscout24</span></div>
+            <div class="meta">
+                <span class="year">1995</span> ·
+                <span>1.8 16v ST</span>
+            </div>
+            <div class="sub">Alacant/Alicante · 260k km · Gasolina</div>
+        </a><a class="card other" href="https://www.autoscout24.es/anuncios/toyota-celica-celica-1-6-gti-gti-gasolina-8d10bcdc-399b-4ca1-9dcd-14577b302674" target="_blank">
+            <div class="price">4.000€<span class="src src-autoscout24">autoscout24</span></div>
+            <div class="meta">
+                <span class="year">1995</span> ·
+                <span>Celica 1.6 GTI GTI</span>
+            </div>
+            <div class="sub">Dénia · 260k km · Gasolina</div>
+        </a><a class="card other" href="https://www.autoscout24.es/anuncios/toyota-celica-1-8-16v-st-gasolina-5404b0b7-d9b2-4a19-a8ad-3e404d1ca3da" target="_blank">
+            <div class="price">4.000€<span class="src src-autoscout24">autoscout24</span></div>
+            <div class="meta">
+                <span class="year">1995</span> ·
+                <span>1.8 16v ST</span>
+            </div>
+            <div class="sub">Alacant/Alicante · 260k km · Gasolina</div>
+        </a><a class="card other" href="https://www.autoscout24.es/anuncios/toyota-celica-celica-1-6-gti-gti-gasolina-8d10bcdc-399b-4ca1-9dcd-14577b302674" target="_blank">
+            <div class="price">4.000€<span class="src src-autoscout24">autoscout24</span></div>
+            <div class="meta">
+                <span class="year">1995</span> ·
+                <span>Celica 1.6 GTI GTI</span>
+            </div>
+            <div class="sub">Dénia · 260k km · Gasolina</div>
+        </a><a class="card other" href="https://www.autoscout24.es/anuncios/toyota-celica-1-8-16v-st-gasolina-5404b0b7-d9b2-4a19-a8ad-3e404d1ca3da" target="_blank">
+            <div class="price">4.000€<span class="src src-autoscout24">autoscout24</span></div>
+            <div class="meta">
+                <span class="year">1995</span> ·
+                <span>1.8 16v ST</span>
+            </div>
+            <div class="sub">Alacant/Alicante · 260k km · Gasolina</div>
+        </a><a class="card other" href="https://www.autoscout24.es/anuncios/toyota-celica-celica-1-6-gti-gti-gasolina-8d10bcdc-399b-4ca1-9dcd-14577b302674" target="_blank">
+            <div class="price">4.000€<span class="src src-autoscout24">autoscout24</span></div>
+            <div class="meta">
+                <span class="year">1995</span> ·
+                <span>Celica 1.6 GTI GTI</span>
+            </div>
+            <div class="sub">Dénia · 260k km · Gasolina</div>
+        </a><a class="card other" href="https://www.autoscout24.es/anuncios/toyota-celica-celica-1-6-gti-gti-gasolina-286ba2be-8c87-4ea3-944a-a79b95149719" target="_blank">
+            <div class="price">6.200€<span class="src src-autoscout24">autoscout24</span></div>
+            <div class="meta">
+                <span class="year">1989</span> ·
+                <span>Celica 1.6 GTI GTI</span>
+            </div>
+            <div class="sub">toledo · 231k km · Gasolina</div>
+        </a><a class="card other" href="https://www.autoscout24.es/anuncios/toyota-celica-celica-1-6-gti-gti-gasolina-286ba2be-8c87-4ea3-944a-a79b95149719" target="_blank">
+            <div class="price">6.200€<span class="src src-autoscout24">autoscout24</span></div>
+            <div class="meta">
+                <span class="year">1989</span> ·
+                <span>Celica 1.6 GTI GTI</span>
+            </div>
+            <div class="sub">toledo · 231k km · Gasolina</div>
+        </a><a class="card other" href="https://www.autoscout24.es/anuncios/toyota-celica-celica-1-6-gti-gti-gasolina-286ba2be-8c87-4ea3-944a-a79b95149719" target="_blank">
+            <div class="price">6.200€<span class="src src-autoscout24">autoscout24</span></div>
+            <div class="meta">
+                <span class="year">1989</span> ·
+                <span>Celica 1.6 GTI GTI</span>
+            </div>
+            <div class="sub">toledo · 231k km · Gasolina</div>
+        </a><a class="card other" href="https://www.autoscout24.es/anuncios/toyota-celica-celica-1-8-16v-st-st-gasolina-rojo-cf719ce7-371d-4d19-8576-0e5cfbd3ffef" target="_blank">
+            <div class="price">8.000€<span class="src src-autoscout24">autoscout24</span></div>
+            <div class="meta">
+                <span class="year">1999</span> ·
+                <span>Celica 1.8 16v ST ST</span>
+            </div>
+            <div class="sub">Madrid · 75k km · Gasolina</div>
+        </a><a class="card other" href="https://www.autoscout24.es/anuncios/toyota-celica-celica-1-8-16v-st-st-gasolina-rojo-cf719ce7-371d-4d19-8576-0e5cfbd3ffef" target="_blank">
+            <div class="price">8.000€<span class="src src-autoscout24">autoscout24</span></div>
+            <div class="meta">
+                <span class="year">1999</span> ·
+                <span>Celica 1.8 16v ST ST</span>
+            </div>
+            <div class="sub">Madrid · 75k km · Gasolina</div>
+        </a><a class="card other" href="https://www.autoscout24.es/anuncios/toyota-celica-celica-1-8-16v-st-st-gasolina-rojo-cf719ce7-371d-4d19-8576-0e5cfbd3ffef" target="_blank">
+            <div class="price">8.000€<span class="src src-autoscout24">autoscout24</span></div>
+            <div class="meta">
+                <span class="year">1999</span> ·
+                <span>Celica 1.8 16v ST ST</span>
+            </div>
+            <div class="sub">Madrid · 75k km · Gasolina</div>
+        </a><a class="card other" href="https://www.autoscout24.es/anuncios/toyota-celica-1-8-16v-st-gasolina-blanco-eb48c8fe-8a97-4fe8-8d50-34803e1fc9dd" target="_blank">
+            <div class="price">8.900€<span class="src src-autoscout24">autoscout24</span></div>
+            <div class="meta">
+                <span class="year">1997</span> ·
+                <span>1.8 16v ST</span>
+            </div>
+            <div class="sub">SEVILLA · 142k km · Gasolina</div>
+        </a><a class="card other" href="https://www.autoscout24.es/anuncios/toyota-celica-1-8-16v-st-gasolina-blanco-eb48c8fe-8a97-4fe8-8d50-34803e1fc9dd" target="_blank">
+            <div class="price">8.900€<span class="src src-autoscout24">autoscout24</span></div>
+            <div class="meta">
+                <span class="year">1997</span> ·
+                <span>1.8 16v ST</span>
+            </div>
+            <div class="sub">SEVILLA · 142k km · Gasolina</div>
+        </a><a class="card other" href="https://www.autoscout24.es/anuncios/toyota-celica-1-8-16v-st-gasolina-blanco-eb48c8fe-8a97-4fe8-8d50-34803e1fc9dd" target="_blank">
+            <div class="price">8.900€<span class="src src-autoscout24">autoscout24</span></div>
+            <div class="meta">
+                <span class="year">1997</span> ·
+                <span>1.8 16v ST</span>
+            </div>
+            <div class="sub">SEVILLA · 142k km · Gasolina</div>
+        </a><a class="card other" href="https://www.autoscout24.es/anuncios/toyota-celica-2-0-gti-gasolina-2d608649-4f41-4a4c-8460-f23afd11e713" target="_blank">
+            <div class="price">9.940€<span class="src src-autoscout24">autoscout24</span></div>
+            <div class="meta">
+                <span class="year">1992</span> ·
+                <span>2.0 GTi</span>
+            </div>
+            <div class="sub">Avilés · 250k km · Gasolina</div>
+        </a><a class="card other" href="https://www.autoscout24.es/anuncios/toyota-celica-2-0-gti-gasolina-2d608649-4f41-4a4c-8460-f23afd11e713" target="_blank">
+            <div class="price">9.940€<span class="src src-autoscout24">autoscout24</span></div>
+            <div class="meta">
+                <span class="year">1992</span> ·
+                <span>2.0 GTi</span>
+            </div>
+            <div class="sub">Avilés · 250k km · Gasolina</div>
+        </a><a class="card other" href="https://www.autoscout24.es/anuncios/toyota-celica-2-0-gti-gasolina-2d608649-4f41-4a4c-8460-f23afd11e713" target="_blank">
+            <div class="price">9.940€<span class="src src-autoscout24">autoscout24</span></div>
+            <div class="meta">
+                <span class="year">1992</span> ·
+                <span>2.0 GTi</span>
+            </div>
+            <div class="sub">Avilés · 250k km · Gasolina</div>
+        </a><a class="card other" href="https://www.autoscout24.es/anuncios/toyota-celica-2-0-gt-gasolina-3eeff04a-9c50-465c-b00d-bbe2d1c41f52" target="_blank">
+            <div class="price">10.800€<span class="src src-autoscout24">autoscout24</span></div>
+            <div class="meta">
+                <span class="year">1992</span> ·
+                <span>2.0 GT</span>
+            </div>
+            <div class="sub">Galapagar · 180k km · Gasolina</div>
+        </a><a class="card other" href="https://www.autoscout24.es/anuncios/toyota-celica-2-0-gt-gasolina-3eeff04a-9c50-465c-b00d-bbe2d1c41f52" target="_blank">
+            <div class="price">10.800€<span class="src src-autoscout24">autoscout24</span></div>
+            <div class="meta">
+                <span class="year">1992</span> ·
+                <span>2.0 GT</span>
+            </div>
+            <div class="sub">Galapagar · 180k km · Gasolina</div>
+        </a><a class="card other" href="https://www.autoscout24.es/anuncios/toyota-celica-2-0-gt-gasolina-3eeff04a-9c50-465c-b00d-bbe2d1c41f52" target="_blank">
+            <div class="price">10.800€<span class="src src-autoscout24">autoscout24</span></div>
+            <div class="meta">
+                <span class="year">1992</span> ·
+                <span>2.0 GT</span>
+            </div>
+            <div class="sub">Galapagar · 180k km · Gasolina</div>
+        </a><a class="card other" href="https://www.autoscout24.es/anuncios/toyota-celica-2-0-gti-16v-gasolina-blanco-421a4f59-6463-4f50-8385-02208f15cb74" target="_blank">
+            <div class="price">11.900€<span class="src src-autoscout24">autoscout24</span></div>
+            <div class="meta">
+                <span class="year">1989</span> ·
+                <span>2.0 GTI 16v</span>
+            </div>
+            <div class="sub">Madrid · 255k km · Gasolina</div>
+        </a><a class="card other" href="https://www.autoscout24.es/anuncios/toyota-celica-2-0-gti-16v-gasolina-blanco-421a4f59-6463-4f50-8385-02208f15cb74" target="_blank">
+            <div class="price">11.900€<span class="src src-autoscout24">autoscout24</span></div>
+            <div class="meta">
+                <span class="year">1989</span> ·
+                <span>2.0 GTI 16v</span>
+            </div>
+            <div class="sub">Madrid · 255k km · Gasolina</div>
+        </a><a class="card other" href="https://www.autoscout24.es/anuncios/toyota-celica-2-0-gti-16v-gasolina-blanco-421a4f59-6463-4f50-8385-02208f15cb74" target="_blank">
+            <div class="price">11.900€<span class="src src-autoscout24">autoscout24</span></div>
+            <div class="meta">
+                <span class="year">1989</span> ·
+                <span>2.0 GTI 16v</span>
+            </div>
+            <div class="sub">Madrid · 255k km · Gasolina</div>
+        </a><a class="card other" href="https://www.autoscout24.es/anuncios/toyota-celica-st165-gt-four-gasolina-gris-4f4c42ce-d352-4845-bc56-106af0cda790" target="_blank">
+            <div class="price">15.000€<span class="src src-autoscout24">autoscout24</span></div>
+            <div class="meta">
+                <span class="year">1988</span> ·
+                <span>ST165 GT Four</span>
+            </div>
+            <div class="sub">Tavertet · 0k km · Gasolina</div>
+        </a><a class="card other" href="https://www.autoscout24.es/anuncios/toyota-celica-st165-gt-four-gasolina-gris-4f4c42ce-d352-4845-bc56-106af0cda790" target="_blank">
+            <div class="price">15.000€<span class="src src-autoscout24">autoscout24</span></div>
+            <div class="meta">
+                <span class="year">1988</span> ·
+                <span>ST165 GT Four</span>
+            </div>
+            <div class="sub">Tavertet · 0k km · Gasolina</div>
+        </a><a class="card other" href="https://www.autoscout24.es/anuncios/toyota-celica-st165-gt-four-gasolina-gris-4f4c42ce-d352-4845-bc56-106af0cda790" target="_blank">
+            <div class="price">15.000€<span class="src src-autoscout24">autoscout24</span></div>
+            <div class="meta">
+                <span class="year">1988</span> ·
+                <span>ST165 GT Four</span>
+            </div>
+            <div class="sub">Tavertet · 0k km · Gasolina</div>
+        </a><a class="card other" href="https://www.autoscout24.es/anuncios/toyota-celica-2-0-gti-gasolina-ebeb4b50-fd8e-45ab-a5d7-ba08b72259ca" target="_blank">
+            <div class="price">15.700€<span class="src src-autoscout24">autoscout24</span></div>
+            <div class="meta">
+                <span class="year">1992</span> ·
+                <span>2.0 GTi</span>
+            </div>
+            <div class="sub">igualada · 270k km · Gasolina</div>
+        </a><a class="card other" href="https://www.autoscout24.es/anuncios/toyota-celica-2-0-gti-gasolina-ebeb4b50-fd8e-45ab-a5d7-ba08b72259ca" target="_blank">
+            <div class="price">15.700€<span class="src src-autoscout24">autoscout24</span></div>
+            <div class="meta">
+                <span class="year">1992</span> ·
+                <span>2.0 GTi</span>
+            </div>
+            <div class="sub">igualada · 270k km · Gasolina</div>
+        </a><a class="card other" href="https://www.autoscout24.es/anuncios/toyota-celica-2-0-gti-gasolina-ebeb4b50-fd8e-45ab-a5d7-ba08b72259ca" target="_blank">
+            <div class="price">15.700€<span class="src src-autoscout24">autoscout24</span></div>
+            <div class="meta">
+                <span class="year">1992</span> ·
+                <span>2.0 GTi</span>
+            </div>
+            <div class="sub">igualada · 270k km · Gasolina</div>
+        </a><a class="card other" href="https://www.autoscout24.es/anuncios/toyota-celica-coupe-gasolina-blanco-faa52adf-3686-4384-bc0c-f3ffb056e102" target="_blank">
+            <div class="price">18.750€<span class="src src-autoscout24">autoscout24</span></div>
+            <div class="meta">
+                <span class="year">1976</span> ·
+                <span>Coupe</span>
+            </div>
+            <div class="sub">Madrid · 101k km · Gasolina</div>
+        </a><a class="card other" href="https://www.autoscout24.es/anuncios/toyota-celica-coupe-gasolina-blanco-faa52adf-3686-4384-bc0c-f3ffb056e102" target="_blank">
+            <div class="price">18.750€<span class="src src-autoscout24">autoscout24</span></div>
+            <div class="meta">
+                <span class="year">1976</span> ·
+                <span>Coupe</span>
+            </div>
+            <div class="sub">Madrid · 101k km · Gasolina</div>
+        </a><a class="card other" href="https://www.autoscout24.es/anuncios/toyota-celica-coupe-gasolina-blanco-faa52adf-3686-4384-bc0c-f3ffb056e102" target="_blank">
+            <div class="price">18.750€<span class="src src-autoscout24">autoscout24</span></div>
+            <div class="meta">
+                <span class="year">1976</span> ·
+                <span>Coupe</span>
+            </div>
+            <div class="sub">Madrid · 101k km · Gasolina</div>
+        </a><a class="card other" href="https://www.autoscout24.es/anuncios/toyota-celica-celica-2-0-gti-gti-gasolina-d2d0331d-00ab-4541-87b9-ce98ab9f5f94" target="_blank">
+            <div class="price">21.000€<span class="src src-autoscout24">autoscout24</span></div>
+            <div class="meta">
+                <span class="year">1986</span> ·
+                <span>Celica 2.0 GTI GTI</span>
+            </div>
+            <div class="sub">Granada · 85k km · Gasolina</div>
+        </a><a class="card other" href="https://www.autoscout24.es/anuncios/toyota-celica-celica-2-0-gti-gti-gasolina-d2d0331d-00ab-4541-87b9-ce98ab9f5f94" target="_blank">
+            <div class="price">21.000€<span class="src src-autoscout24">autoscout24</span></div>
+            <div class="meta">
+                <span class="year">1986</span> ·
+                <span>Celica 2.0 GTI GTI</span>
+            </div>
+            <div class="sub">Granada · 85k km · Gasolina</div>
+        </a><a class="card other" href="https://www.autoscout24.es/anuncios/toyota-celica-celica-2-0-gti-gti-gasolina-d2d0331d-00ab-4541-87b9-ce98ab9f5f94" target="_blank">
+            <div class="price">21.000€<span class="src src-autoscout24">autoscout24</span></div>
+            <div class="meta">
+                <span class="year">1986</span> ·
+                <span>Celica 2.0 GTI GTI</span>
+            </div>
+            <div class="sub">Granada · 85k km · Gasolina</div>
+        </a><a class="card other" href="https://www.autoscout24.es/anuncios/toyota-celica-celica-2-0-gti-gti-gasolina-marron-3e9601a8-295d-4a14-aedc-e8548bc984fa" target="_blank">
+            <div class="price">25.000€<span class="src src-autoscout24">autoscout24</span></div>
+            <div class="meta">
+                <span class="year">1975</span> ·
+                <span>Celica 2.0 GTI GTI</span>
+            </div>
+            <div class="sub">Madeira, Portugal · 45k km · Gasolina</div>
+        </a><a class="card other" href="https://www.autoscout24.es/anuncios/toyota-celica-celica-2-0-gti-gti-gasolina-marron-3e9601a8-295d-4a14-aedc-e8548bc984fa" target="_blank">
+            <div class="price">25.000€<span class="src src-autoscout24">autoscout24</span></div>
+            <div class="meta">
+                <span class="year">1975</span> ·
+                <span>Celica 2.0 GTI GTI</span>
+            </div>
+            <div class="sub">Madeira, Portugal · 45k km · Gasolina</div>
+        </a><a class="card other" href="https://www.autoscout24.es/anuncios/toyota-celica-celica-2-0-gti-gti-gasolina-marron-3e9601a8-295d-4a14-aedc-e8548bc984fa" target="_blank">
+            <div class="price">25.000€<span class="src src-autoscout24">autoscout24</span></div>
+            <div class="meta">
+                <span class="year">1975</span> ·
+                <span>Celica 2.0 GTI GTI</span>
+            </div>
+            <div class="sub">Madeira, Portugal · 45k km · Gasolina</div>
+        </a><a class="card other" href="https://www.autoscout24.es/anuncios/toyota-celica-celica-2-0-4wd-turbo-gasolina-blanco-255d4cb5-2bc0-4e22-9227-3d2f42c31b04" target="_blank">
+            <div class="price">34.995€<span class="src src-autoscout24">autoscout24</span></div>
+            <div class="meta">
+                <span class="year">1994</span> ·
+                <span>Celica 2.0 4WD Turbo</span>
+            </div>
+            <div class="sub">Quart de Poblet · 180k km · Gasolina</div>
+        </a><a class="card other" href="https://www.autoscout24.es/anuncios/toyota-celica-celica-2-0-4wd-turbo-gasolina-blanco-255d4cb5-2bc0-4e22-9227-3d2f42c31b04" target="_blank">
+            <div class="price">34.995€<span class="src src-autoscout24">autoscout24</span></div>
+            <div class="meta">
+                <span class="year">1994</span> ·
+                <span>Celica 2.0 4WD Turbo</span>
+            </div>
+            <div class="sub">Quart de Poblet · 180k km · Gasolina</div>
+        </a><a class="card other" href="https://www.autoscout24.es/anuncios/toyota-celica-celica-2-0-4wd-turbo-gasolina-blanco-255d4cb5-2bc0-4e22-9227-3d2f42c31b04" target="_blank">
+            <div class="price">34.995€<span class="src src-autoscout24">autoscout24</span></div>
+            <div class="meta">
+                <span class="year">1994</span> ·
+                <span>Celica 2.0 4WD Turbo</span>
+            </div>
+            <div class="sub">Quart de Poblet · 180k km · Gasolina</div>
+        </a><a class="card other" href="https://www.autoscout24.es/anuncios/toyota-celica-2-0-4wd-turbo-carlos-sainz-gasolina-ed790903-e870-47b7-9f91-2bee2bfc1f3a" target="_blank">
+            <div class="price">40.000€<span class="src src-autoscout24">autoscout24</span></div>
+            <div class="meta">
+                <span class="year">1992</span> ·
+                <span>2.0 4WD Turbo Carlos Sainz</span>
+            </div>
+            <div class="sub">igualada · 200k km · Gasolina</div>
+        </a><a class="card other" href="https://www.autoscout24.es/anuncios/toyota-celica-2-0-4wd-turbo-carlos-sainz-gasolina-ed790903-e870-47b7-9f91-2bee2bfc1f3a" target="_blank">
+            <div class="price">40.000€<span class="src src-autoscout24">autoscout24</span></div>
+            <div class="meta">
+                <span class="year">1992</span> ·
+                <span>2.0 4WD Turbo Carlos Sainz</span>
+            </div>
+            <div class="sub">igualada · 200k km · Gasolina</div>
+        </a><a class="card other" href="https://www.autoscout24.es/anuncios/toyota-celica-2-0-4wd-turbo-carlos-sainz-gasolina-ed790903-e870-47b7-9f91-2bee2bfc1f3a" target="_blank">
+            <div class="price">40.000€<span class="src src-autoscout24">autoscout24</span></div>
+            <div class="meta">
+                <span class="year">1992</span> ·
+                <span>2.0 4WD Turbo Carlos Sainz</span>
+            </div>
+            <div class="sub">igualada · 200k km · Gasolina</div>
+        </a></div>
+</section>
+
+<footer>Generado por celica-tracker · ejecuta <code>python3 scrape.py &amp;&amp; python3 build_dashboard.py</code> para refrescar</footer>
+
+<script>
+const scatter = {"target": [{"km": 295000, "precio": 1750, "anio": 2002, "modelo": "Toyota Celica 2002", "ciudad": "", "url": "https://es.wallapop.com/item/toyota-celica-2002-1259391493"}, {"km": 100000, "precio": 3990, "anio": 2002, "modelo": "Toyota Celica 2002", "ciudad": "", "url": "https://es.wallapop.com/item/toyota-celica-2002-1254952125"}, {"km": 160000, "precio": 4000, "anio": 2003, "modelo": "Toyota Celica 2003", "ciudad": "", "url": "https://es.wallapop.com/item/toyota-celica-2003-1258767370"}, {"km": 260000, "precio": 4300, "anio": 2003, "modelo": "Toyota Celica 2003", "ciudad": "", "url": "https://es.wallapop.com/item/toyota-celica-2003-1209425616"}, {"km": 160000, "precio": 4499, "anio": 2003, "modelo": "TOYOTA CELICA ETIQUETA MEDIOAMBIENTAL B \ud83d\udfe1", "ciudad": "", "url": "https://es.wallapop.com/item/toyota-celica-2003-1227432309"}, {"km": 320000, "precio": 4500, "anio": 2004, "modelo": "Toyota Celica 2004", "ciudad": "", "url": "https://es.wallapop.com/item/toyota-celica-2004-1241134283"}, {"km": 300000, "precio": 4500, "anio": 2005, "modelo": "Toyota Celica 2005", "ciudad": "", "url": "https://es.wallapop.com/item/toyota-celica-2005-1024930281"}, {"km": 260000, "precio": 4999, "anio": 2003, "modelo": "Celica 1.8", "ciudad": "Cuevas Del Almanzora", "url": "https://www.autoscout24.es/anuncios/toyota-celica-celica-1-8-gasolina-eecee05a-8722-4fa3-ba08-68a3c143b5c0"}, {"km": 260000, "precio": 4999, "anio": 2003, "modelo": "Celica 1.8", "ciudad": "Cuevas Del Almanzora", "url": "https://www.autoscout24.es/anuncios/toyota-celica-celica-1-8-gasolina-eecee05a-8722-4fa3-ba08-68a3c143b5c0"}, {"km": 260000, "precio": 4999, "anio": 2003, "modelo": "Celica 1.8", "ciudad": "Cuevas Del Almanzora", "url": "https://www.autoscout24.es/anuncios/toyota-celica-celica-1-8-gasolina-eecee05a-8722-4fa3-ba08-68a3c143b5c0"}, {"km": 146000, "precio": 5000, "anio": 2004, "modelo": "Toyota Celica T23", "ciudad": "", "url": "https://es.wallapop.com/item/toyota-celica-t23-1259198565"}, {"km": 230000, "precio": 5000, "anio": 2003, "modelo": "Toyota Celica 2003", "ciudad": "", "url": "https://es.wallapop.com/item/toyota-celica-2003-1233140808"}, {"km": 250000, "precio": 5400, "anio": 2004, "modelo": "Toyota Celica 2004", "ciudad": "", "url": "https://es.wallapop.com/item/toyota-celica-2004-1238013061"}, {"km": 402000, "precio": 5800, "anio": 2003, "modelo": "Toyota Celica 2003", "ciudad": "", "url": "https://es.wallapop.com/item/toyota-celica-2003-1250443310"}, {"km": 174000, "precio": 5850, "anio": 2003, "modelo": "Toyota Celica 2003", "ciudad": "", "url": "https://es.wallapop.com/item/toyota-celica-2003-1252175560"}, {"km": 180000, "precio": 6000, "anio": 2002, "modelo": "toyota celica tuning", "ciudad": "", "url": "https://es.wallapop.com/item/toyota-celica-2002-1223453316"}, {"km": 270000, "precio": 6000, "anio": 2003, "modelo": "Toyota Celica 2003", "ciudad": "", "url": "https://es.wallapop.com/item/toyota-celica-2005-1014003197"}, {"km": 240000, "precio": 6800, "anio": 2005, "modelo": "Toyota c\u00e9lica vvti 2005", "ciudad": "", "url": "https://es.wallapop.com/item/toyota-celica-vvti-2005-1231733796"}, {"km": 220000, "precio": 7000, "anio": 2005, "modelo": "Celica 1.8", "ciudad": "Val\u00e8ncia", "url": "https://www.autoscout24.es/anuncios/toyota-celica-celica-1-8-gasolina-negro-9faa39e3-63ed-49ef-b1f5-c89f58d07552"}, {"km": 215907, "precio": 7000, "anio": 2002, "modelo": "Toyota Celica 2002", "ciudad": "", "url": "https://es.wallapop.com/item/toyota-celica-2002-1243834711"}, {"km": 193000, "precio": 7000, "anio": 2004, "modelo": "Toyota Celica 2004", "ciudad": "", "url": "https://es.wallapop.com/item/toyota-celica-con-gas-glp-190-000-km-1178795416"}, {"km": 220000, "precio": 7000, "anio": 2005, "modelo": "Celica 1.8", "ciudad": "Val\u00e8ncia", "url": "https://www.autoscout24.es/anuncios/toyota-celica-celica-1-8-gasolina-negro-9faa39e3-63ed-49ef-b1f5-c89f58d07552"}, {"km": 220000, "precio": 7000, "anio": 2005, "modelo": "Celica 1.8", "ciudad": "Val\u00e8ncia", "url": "https://www.autoscout24.es/anuncios/toyota-celica-celica-1-8-gasolina-negro-9faa39e3-63ed-49ef-b1f5-c89f58d07552"}, {"km": 181000, "precio": 7000, "anio": 2003, "modelo": "Toyota Celica 2003", "ciudad": "", "url": "https://es.wallapop.com/item/toyota-celica-2003-1111803425"}, {"km": 170000, "precio": 7500, "anio": 2004, "modelo": "Toyota Celica 2004", "ciudad": "", "url": "https://es.wallapop.com/item/toyota-celica-2004-1246948905"}, {"km": 232000, "precio": 7800, "anio": 2002, "modelo": "Toyota celica 7 g", "ciudad": "", "url": "https://es.wallapop.com/item/toyota-celica-1252959062"}, {"km": 309000, "precio": 7999, "anio": 2005, "modelo": "Toyota Celica 143 cv, 1.8 VVT-i", "ciudad": "", "url": "https://es.wallapop.com/item/toyota-celica-143-cv-1-8-vvt-i-1245575631"}, {"km": 170000, "precio": 8000, "anio": 2003, "modelo": "Celica Toyota celica vvtli 2003 192cv", "ciudad": "", "url": "https://es.wallapop.com/item/celica-toyota-celica-vvtli-2003-920076338"}, {"km": 185000, "precio": 9000, "anio": 2005, "modelo": "Toyota Celica 2005", "ciudad": "", "url": "https://es.wallapop.com/item/toyota-celica-2005-969395431"}, {"km": 170000, "precio": 9200, "anio": 2004, "modelo": "Toyota Celica 2004", "ciudad": "", "url": "https://es.wallapop.com/item/toyota-celica-2004-1242655929"}, {"km": 200000, "precio": 9500, "anio": 2003, "modelo": "Toyota Celica 2003", "ciudad": "", "url": "https://es.wallapop.com/item/toyota-celica-2003-1258456451"}, {"km": 20000, "precio": 10000, "anio": 2004, "modelo": "Toyota Celica Turbo LEER DESCRIPCION", "ciudad": "", "url": "https://es.wallapop.com/item/toyota-celica-2004-1022925334"}, {"km": 185900, "precio": 10500, "anio": 2003, "modelo": "Toyota Celica 2003", "ciudad": "", "url": "https://es.wallapop.com/item/toyota-celica-2003-1199906793"}, {"km": 89000, "precio": 11990, "anio": 2005, "modelo": "Toyota Celica 89.000KM 2005 143CV", "ciudad": "", "url": "https://es.wallapop.com/item/toyota-celica-89-000km-2005-143cv-1252654296"}], "t230": [{"km": 220000, "precio": 2000, "anio": 2000, "modelo": "Toyota Celica 2005", "ciudad": "", "url": "https://es.wallapop.com/item/toyota-celica-2005-1062287403"}, {"km": 184000, "precio": 5000, "anio": 2000, "modelo": "1.8 VVT-1", "ciudad": "MADRID", "url": "https://www.autoscout24.es/anuncios/toyota-celica-1-8-vvt-1-gasolina-gris-5f7717c0-4e92-4a59-86ad-5167e68b6c47"}, {"km": 184000, "precio": 5000, "anio": 2000, "modelo": "1.8 VVT-1", "ciudad": "MADRID", "url": "https://www.autoscout24.es/anuncios/toyota-celica-1-8-vvt-1-gasolina-gris-5f7717c0-4e92-4a59-86ad-5167e68b6c47"}, {"km": 184000, "precio": 5000, "anio": 2000, "modelo": "1.8 VVT-1", "ciudad": "MADRID", "url": "https://www.autoscout24.es/anuncios/toyota-celica-1-8-vvt-1-gasolina-gris-5f7717c0-4e92-4a59-86ad-5167e68b6c47"}, {"km": 270000, "precio": 6000, "anio": 2001, "modelo": "1.8 VVT-1", "ciudad": "tias ", "url": "https://www.autoscout24.es/anuncios/toyota-celica-1-8-vvt-1-gasolina-8dfa460b-502d-4cac-b9fd-095453e14046"}, {"km": 270000, "precio": 6000, "anio": 2001, "modelo": "1.8 VVT-1", "ciudad": "tias ", "url": "https://www.autoscout24.es/anuncios/toyota-celica-1-8-vvt-1-gasolina-8dfa460b-502d-4cac-b9fd-095453e14046"}, {"km": 270000, "precio": 6000, "anio": 2001, "modelo": "1.8 VVT-1", "ciudad": "tias ", "url": "https://www.autoscout24.es/anuncios/toyota-celica-1-8-vvt-1-gasolina-8dfa460b-502d-4cac-b9fd-095453e14046"}], "other": [{"km": 260000, "precio": 4000, "anio": 1995, "modelo": "1.8 16v ST", "ciudad": "Alacant/Alicante", "url": "https://www.autoscout24.es/anuncios/toyota-celica-1-8-16v-st-gasolina-5404b0b7-d9b2-4a19-a8ad-3e404d1ca3da"}, {"km": 260000, "precio": 4000, "anio": 1995, "modelo": "Celica 1.6 GTI GTI", "ciudad": "D\u00e9nia", "url": "https://www.autoscout24.es/anuncios/toyota-celica-celica-1-6-gti-gti-gasolina-8d10bcdc-399b-4ca1-9dcd-14577b302674"}, {"km": 260000, "precio": 4000, "anio": 1995, "modelo": "1.8 16v ST", "ciudad": "Alacant/Alicante", "url": "https://www.autoscout24.es/anuncios/toyota-celica-1-8-16v-st-gasolina-5404b0b7-d9b2-4a19-a8ad-3e404d1ca3da"}, {"km": 260000, "precio": 4000, "anio": 1995, "modelo": "Celica 1.6 GTI GTI", "ciudad": "D\u00e9nia", "url": "https://www.autoscout24.es/anuncios/toyota-celica-celica-1-6-gti-gti-gasolina-8d10bcdc-399b-4ca1-9dcd-14577b302674"}, {"km": 260000, "precio": 4000, "anio": 1995, "modelo": "1.8 16v ST", "ciudad": "Alacant/Alicante", "url": "https://www.autoscout24.es/anuncios/toyota-celica-1-8-16v-st-gasolina-5404b0b7-d9b2-4a19-a8ad-3e404d1ca3da"}, {"km": 260000, "precio": 4000, "anio": 1995, "modelo": "Celica 1.6 GTI GTI", "ciudad": "D\u00e9nia", "url": "https://www.autoscout24.es/anuncios/toyota-celica-celica-1-6-gti-gti-gasolina-8d10bcdc-399b-4ca1-9dcd-14577b302674"}, {"km": 231000, "precio": 6200, "anio": 1989, "modelo": "Celica 1.6 GTI GTI", "ciudad": "toledo", "url": "https://www.autoscout24.es/anuncios/toyota-celica-celica-1-6-gti-gti-gasolina-286ba2be-8c87-4ea3-944a-a79b95149719"}, {"km": 231000, "precio": 6200, "anio": 1989, "modelo": "Celica 1.6 GTI GTI", "ciudad": "toledo", "url": "https://www.autoscout24.es/anuncios/toyota-celica-celica-1-6-gti-gti-gasolina-286ba2be-8c87-4ea3-944a-a79b95149719"}, {"km": 231000, "precio": 6200, "anio": 1989, "modelo": "Celica 1.6 GTI GTI", "ciudad": "toledo", "url": "https://www.autoscout24.es/anuncios/toyota-celica-celica-1-6-gti-gti-gasolina-286ba2be-8c87-4ea3-944a-a79b95149719"}, {"km": 75000, "precio": 8000, "anio": 1999, "modelo": "Celica 1.8 16v ST ST", "ciudad": "Madrid", "url": "https://www.autoscout24.es/anuncios/toyota-celica-celica-1-8-16v-st-st-gasolina-rojo-cf719ce7-371d-4d19-8576-0e5cfbd3ffef"}, {"km": 75000, "precio": 8000, "anio": 1999, "modelo": "Celica 1.8 16v ST ST", "ciudad": "Madrid", "url": "https://www.autoscout24.es/anuncios/toyota-celica-celica-1-8-16v-st-st-gasolina-rojo-cf719ce7-371d-4d19-8576-0e5cfbd3ffef"}, {"km": 75000, "precio": 8000, "anio": 1999, "modelo": "Celica 1.8 16v ST ST", "ciudad": "Madrid", "url": "https://www.autoscout24.es/anuncios/toyota-celica-celica-1-8-16v-st-st-gasolina-rojo-cf719ce7-371d-4d19-8576-0e5cfbd3ffef"}, {"km": 142000, "precio": 8900, "anio": 1997, "modelo": "1.8 16v ST", "ciudad": "SEVILLA", "url": "https://www.autoscout24.es/anuncios/toyota-celica-1-8-16v-st-gasolina-blanco-eb48c8fe-8a97-4fe8-8d50-34803e1fc9dd"}, {"km": 142000, "precio": 8900, "anio": 1997, "modelo": "1.8 16v ST", "ciudad": "SEVILLA", "url": "https://www.autoscout24.es/anuncios/toyota-celica-1-8-16v-st-gasolina-blanco-eb48c8fe-8a97-4fe8-8d50-34803e1fc9dd"}, {"km": 142000, "precio": 8900, "anio": 1997, "modelo": "1.8 16v ST", "ciudad": "SEVILLA", "url": "https://www.autoscout24.es/anuncios/toyota-celica-1-8-16v-st-gasolina-blanco-eb48c8fe-8a97-4fe8-8d50-34803e1fc9dd"}, {"km": 250000, "precio": 9940, "anio": 1992, "modelo": "2.0 GTi", "ciudad": "Avil\u00e9s", "url": "https://www.autoscout24.es/anuncios/toyota-celica-2-0-gti-gasolina-2d608649-4f41-4a4c-8460-f23afd11e713"}, {"km": 250000, "precio": 9940, "anio": 1992, "modelo": "2.0 GTi", "ciudad": "Avil\u00e9s", "url": "https://www.autoscout24.es/anuncios/toyota-celica-2-0-gti-gasolina-2d608649-4f41-4a4c-8460-f23afd11e713"}, {"km": 250000, "precio": 9940, "anio": 1992, "modelo": "2.0 GTi", "ciudad": "Avil\u00e9s", "url": "https://www.autoscout24.es/anuncios/toyota-celica-2-0-gti-gasolina-2d608649-4f41-4a4c-8460-f23afd11e713"}, {"km": 180000, "precio": 10800, "anio": 1992, "modelo": "2.0 GT", "ciudad": "Galapagar", "url": "https://www.autoscout24.es/anuncios/toyota-celica-2-0-gt-gasolina-3eeff04a-9c50-465c-b00d-bbe2d1c41f52"}, {"km": 180000, "precio": 10800, "anio": 1992, "modelo": "2.0 GT", "ciudad": "Galapagar", "url": "https://www.autoscout24.es/anuncios/toyota-celica-2-0-gt-gasolina-3eeff04a-9c50-465c-b00d-bbe2d1c41f52"}, {"km": 180000, "precio": 10800, "anio": 1992, "modelo": "2.0 GT", "ciudad": "Galapagar", "url": "https://www.autoscout24.es/anuncios/toyota-celica-2-0-gt-gasolina-3eeff04a-9c50-465c-b00d-bbe2d1c41f52"}, {"km": 255000, "precio": 11900, "anio": 1989, "modelo": "2.0 GTI 16v", "ciudad": "Madrid", "url": "https://www.autoscout24.es/anuncios/toyota-celica-2-0-gti-16v-gasolina-blanco-421a4f59-6463-4f50-8385-02208f15cb74"}, {"km": 255000, "precio": 11900, "anio": 1989, "modelo": "2.0 GTI 16v", "ciudad": "Madrid", "url": "https://www.autoscout24.es/anuncios/toyota-celica-2-0-gti-16v-gasolina-blanco-421a4f59-6463-4f50-8385-02208f15cb74"}, {"km": 255000, "precio": 11900, "anio": 1989, "modelo": "2.0 GTI 16v", "ciudad": "Madrid", "url": "https://www.autoscout24.es/anuncios/toyota-celica-2-0-gti-16v-gasolina-blanco-421a4f59-6463-4f50-8385-02208f15cb74"}, {"km": 1, "precio": 15000, "anio": 1988, "modelo": "ST165 GT Four", "ciudad": "Tavertet", "url": "https://www.autoscout24.es/anuncios/toyota-celica-st165-gt-four-gasolina-gris-4f4c42ce-d352-4845-bc56-106af0cda790"}, {"km": 1, "precio": 15000, "anio": 1988, "modelo": "ST165 GT Four", "ciudad": "Tavertet", "url": "https://www.autoscout24.es/anuncios/toyota-celica-st165-gt-four-gasolina-gris-4f4c42ce-d352-4845-bc56-106af0cda790"}, {"km": 1, "precio": 15000, "anio": 1988, "modelo": "ST165 GT Four", "ciudad": "Tavertet", "url": "https://www.autoscout24.es/anuncios/toyota-celica-st165-gt-four-gasolina-gris-4f4c42ce-d352-4845-bc56-106af0cda790"}, {"km": 270000, "precio": 15700, "anio": 1992, "modelo": "2.0 GTi", "ciudad": "igualada", "url": "https://www.autoscout24.es/anuncios/toyota-celica-2-0-gti-gasolina-ebeb4b50-fd8e-45ab-a5d7-ba08b72259ca"}, {"km": 270000, "precio": 15700, "anio": 1992, "modelo": "2.0 GTi", "ciudad": "igualada", "url": "https://www.autoscout24.es/anuncios/toyota-celica-2-0-gti-gasolina-ebeb4b50-fd8e-45ab-a5d7-ba08b72259ca"}, {"km": 270000, "precio": 15700, "anio": 1992, "modelo": "2.0 GTi", "ciudad": "igualada", "url": "https://www.autoscout24.es/anuncios/toyota-celica-2-0-gti-gasolina-ebeb4b50-fd8e-45ab-a5d7-ba08b72259ca"}, {"km": 101284, "precio": 18750, "anio": 1976, "modelo": "Coupe", "ciudad": "Madrid", "url": "https://www.autoscout24.es/anuncios/toyota-celica-coupe-gasolina-blanco-faa52adf-3686-4384-bc0c-f3ffb056e102"}, {"km": 101284, "precio": 18750, "anio": 1976, "modelo": "Coupe", "ciudad": "Madrid", "url": "https://www.autoscout24.es/anuncios/toyota-celica-coupe-gasolina-blanco-faa52adf-3686-4384-bc0c-f3ffb056e102"}, {"km": 101284, "precio": 18750, "anio": 1976, "modelo": "Coupe", "ciudad": "Madrid", "url": "https://www.autoscout24.es/anuncios/toyota-celica-coupe-gasolina-blanco-faa52adf-3686-4384-bc0c-f3ffb056e102"}, {"km": 85000, "precio": 21000, "anio": 1986, "modelo": "Celica 2.0 GTI GTI", "ciudad": "Granada", "url": "https://www.autoscout24.es/anuncios/toyota-celica-celica-2-0-gti-gti-gasolina-d2d0331d-00ab-4541-87b9-ce98ab9f5f94"}, {"km": 85000, "precio": 21000, "anio": 1986, "modelo": "Celica 2.0 GTI GTI", "ciudad": "Granada", "url": "https://www.autoscout24.es/anuncios/toyota-celica-celica-2-0-gti-gti-gasolina-d2d0331d-00ab-4541-87b9-ce98ab9f5f94"}, {"km": 85000, "precio": 21000, "anio": 1986, "modelo": "Celica 2.0 GTI GTI", "ciudad": "Granada", "url": "https://www.autoscout24.es/anuncios/toyota-celica-celica-2-0-gti-gti-gasolina-d2d0331d-00ab-4541-87b9-ce98ab9f5f94"}, {"km": 45000, "precio": 25000, "anio": 1975, "modelo": "Celica 2.0 GTI GTI", "ciudad": "Madeira, Portugal ", "url": "https://www.autoscout24.es/anuncios/toyota-celica-celica-2-0-gti-gti-gasolina-marron-3e9601a8-295d-4a14-aedc-e8548bc984fa"}, {"km": 45000, "precio": 25000, "anio": 1975, "modelo": "Celica 2.0 GTI GTI", "ciudad": "Madeira, Portugal ", "url": "https://www.autoscout24.es/anuncios/toyota-celica-celica-2-0-gti-gti-gasolina-marron-3e9601a8-295d-4a14-aedc-e8548bc984fa"}, {"km": 45000, "precio": 25000, "anio": 1975, "modelo": "Celica 2.0 GTI GTI", "ciudad": "Madeira, Portugal ", "url": "https://www.autoscout24.es/anuncios/toyota-celica-celica-2-0-gti-gti-gasolina-marron-3e9601a8-295d-4a14-aedc-e8548bc984fa"}, {"km": 180603, "precio": 34995, "anio": 1994, "modelo": "Celica 2.0 4WD Turbo", "ciudad": "Quart de Poblet", "url": "https://www.autoscout24.es/anuncios/toyota-celica-celica-2-0-4wd-turbo-gasolina-blanco-255d4cb5-2bc0-4e22-9227-3d2f42c31b04"}, {"km": 180603, "precio": 34995, "anio": 1994, "modelo": "Celica 2.0 4WD Turbo", "ciudad": "Quart de Poblet", "url": "https://www.autoscout24.es/anuncios/toyota-celica-celica-2-0-4wd-turbo-gasolina-blanco-255d4cb5-2bc0-4e22-9227-3d2f42c31b04"}, {"km": 180603, "precio": 34995, "anio": 1994, "modelo": "Celica 2.0 4WD Turbo", "ciudad": "Quart de Poblet", "url": "https://www.autoscout24.es/anuncios/toyota-celica-celica-2-0-4wd-turbo-gasolina-blanco-255d4cb5-2bc0-4e22-9227-3d2f42c31b04"}, {"km": 200000, "precio": 40000, "anio": 1992, "modelo": "2.0 4WD Turbo Carlos Sainz", "ciudad": "igualada", "url": "https://www.autoscout24.es/anuncios/toyota-celica-2-0-4wd-turbo-carlos-sainz-gasolina-ed790903-e870-47b7-9f91-2bee2bfc1f3a"}, {"km": 200000, "precio": 40000, "anio": 1992, "modelo": "2.0 4WD Turbo Carlos Sainz", "ciudad": "igualada", "url": "https://www.autoscout24.es/anuncios/toyota-celica-2-0-4wd-turbo-carlos-sainz-gasolina-ed790903-e870-47b7-9f91-2bee2bfc1f3a"}, {"km": 200000, "precio": 40000, "anio": 1992, "modelo": "2.0 4WD Turbo Carlos Sainz", "ciudad": "igualada", "url": "https://www.autoscout24.es/anuncios/toyota-celica-2-0-4wd-turbo-carlos-sainz-gasolina-ed790903-e870-47b7-9f91-2bee2bfc1f3a"}]};
+const history = [{"fecha": "2026-04-28", "mediana": 7000.0, "min": 450, "max": 12700, "n": 26}, {"fecha": "2026-04-29", "mediana": 7000.0, "min": 450, "max": 13000, "n": 36}, {"fecha": "2026-04-30", "mediana": 7000, "min": 450, "max": 13000, "n": 27}, {"fecha": "2026-05-04", "mediana": 7000.0, "min": 450, "max": 11990, "n": 24}, {"fecha": "2026-05-05", "mediana": 6000.0, "min": 450, "max": 11990, "n": 36}];
+const tooltip = (ctx) => {
+  const r = ctx.raw.r;
+  return [`${r.anio} ${r.modelo||''}`, `${r.precio.toLocaleString('es-ES')} €`,
+          `${(r.km/1000).toFixed(0)}k km · ${r.ciudad||'?'}`];
+};
+new Chart(document.getElementById('scatter'), {
+  type: 'scatter',
+  data: { datasets: [
+    { label: 'Otras', data: scatter.other.map(r => ({x: r.km/1000, y: r.precio, r: r})),
+       backgroundColor: '#666', pointRadius: 6 },
+    { label: 'T230 fuera 2002-2006', data: scatter.t230.map(r => ({x: r.km/1000, y: r.precio, r: r})),
+       backgroundColor: '#4a9eff', pointRadius: 8 },
+    { label: '2002-2006 OBJETIVO', data: scatter.target.map(r => ({x: r.km/1000, y: r.precio, r: r})),
+       backgroundColor: '#ff5252', pointRadius: 12, pointStyle: 'star' },
+  ]},
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    onClick: (e, els) => { if(els[0]) { const d = e.chart.data.datasets[els[0].datasetIndex].data[els[0].index]; if(d.r.url) window.open(d.r.url,'_blank'); } },
+    plugins: { tooltip: { callbacks: { label: tooltip } }, legend: { labels: { color: '#ccc' } } },
+    scales: {
+      x: { title: { display: true, text: 'Kilómetros (miles)', color: '#aaa' }, ticks: { color: '#888' }, grid: { color: '#222' } },
+      y: { title: { display: true, text: 'Precio (€)', color: '#aaa' }, ticks: { color: '#888' }, grid: { color: '#222' } }
+    }
+  }
+});
+new Chart(document.getElementById('history'), {
+  type: 'line',
+  data: { labels: history.map(h => h.fecha),
+           datasets: [
+             { label: 'Mediana', data: history.map(h => h.mediana), borderColor: '#ffcc00', backgroundColor: '#ffcc0022', tension: 0.2, pointRadius: 5 },
+             { label: 'Min',     data: history.map(h => h.min), borderColor: '#4a9eff', borderDash:[4,4], pointRadius: 3 },
+             { label: 'Max',     data: history.map(h => h.max), borderColor: '#ff5252', borderDash:[4,4], pointRadius: 3 },
+           ]},
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { labels: { color: '#ccc' } } },
+    scales: {
+      x: { ticks: { color: '#888' }, grid: { color: '#222' } },
+      y: { title: { display: true, text: '€', color: '#aaa' }, ticks: { color: '#888' }, grid: { color: '#222' } }
+    }
+  }
+});
+
+
+// ---- Botones ----
+const _btn   = document.getElementById('refresh-btn');
+const _power = document.getElementById('power-btn');
+const _log   = document.getElementById('refresh-log');
+const _hint  = document.getElementById('refresh-hint');
+const _panel = document.getElementById('logs-panel');
+const _dot   = document.getElementById('logs-dot');
+const _title = document.getElementById('logs-title');
+const _modal = document.getElementById('modal-bg');
+const SERVER_URL = 'http://127.0.0.1:8765/';
+const _isHttp = location.protocol === 'http:' || location.protocol === 'https:';
+
+function _showLogs(state, label) {
+  _panel.classList.add('active');
+  _dot.className = 'dot ' + (state || '');
+  _title.textContent = label || 'Logs';
+}
+function closeModal() { _modal.classList.remove('active'); }
+function copyCmd(ev) {
+  const t = document.getElementById('modal-cmd').textContent;
+  navigator.clipboard.writeText(t).then(() => {
+    const b = ev.target; const old = b.textContent;
+    b.textContent = '✓ Copiado'; setTimeout(() => b.textContent = old, 1200);
+  }).catch(() => {});
+}
+
+// El power-btn se autoetiqueta según contexto
+function setPowerMode(mode) {
+  if (mode === 'stop') {
+    _power.textContent = '⏻ Apagar server';
+    _power.className = 'ghost-btn danger';
+    _power.dataset.mode = 'stop';
+    _btn.disabled = false;
+    _btn.textContent = '↻ Refrescar ahora';
+    _hint.textContent = '';
+  } else {
+    _power.textContent = '▶ Arrancar server';
+    _power.className = 'ghost-btn';
+    _power.dataset.mode = 'start';
+    _btn.disabled = true;
+    _btn.textContent = '↻ Refrescar (necesita server)';
+    _hint.textContent = 'El server no responde en :8765';
+  }
+}
+setPowerMode(_isHttp ? 'stop' : 'start');
+
+async function doPower() {
+  if (_power.dataset.mode === 'stop') {
+    if (!confirm('¿Apagar el server? Tendrás que volver a arrancarlo para refrescar.')) return;
+    _power.disabled = true; _btn.disabled = true;
+    _showLogs('live', 'Apagando server…');
+    _log.textContent = 'Apagando server…';
+    try {
+      const r = await fetch('/api/shutdown', {method:'POST'});
+      if (r.status === 409) {
+        const j = await r.json();
+        _log.textContent = '✗ ' + (j.error || 'no se puede apagar ahora');
+        _power.disabled = false; _btn.disabled = false;
+        return;
+      }
+    } catch(e) { /* esperable: la conexión muere */ }
+    _log.textContent = '👋 Server apagado.';
+    _power.disabled = false;
+    setPowerMode('start');
+  } else {
+    // Con socket activation systemd despierta el server al primer request.
+    // Probamos primero — si no responde en ~3s, caemos al modal manual.
+    _showLogs('live', 'Despertando server…');
+    _log.textContent = 'Pidiendo a systemd que arranque celica-tracker.service…';
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 3500);
+    try {
+      const r = await fetch(SERVER_URL + 'api/status', {cache:'no-store', signal: ctrl.signal});
+      clearTimeout(t);
+      if (r.ok) { _log.textContent = '✓ Server vivo, redirigiendo…'; location.href = SERVER_URL; return; }
+    } catch(e) { /* timeout o conexión rechazada → no hay socket activation */ }
+    clearTimeout(t);
+    _showLogs('err', 'Server no responde');
+    _log.textContent = 'No hay socket activation ni server escuchando en :8765.\nArráncalo a mano:';
+    _modal.classList.add('active');
+  }
+}
+
+async function doRefresh() {
+  _btn.disabled = true;
+  _btn.innerHTML = '<span class="spin">↻</span> scrapeando…';
+  _showLogs('live', 'Scrapeando…');
+  _log.textContent = 'Lanzando scrape…';
+  try {
+    const r = await fetch('/api/scrape', {method:'POST'});
+    if (r.status === 409) {
+      _log.textContent = 'Ya hay un scrape en marcha, engancho al log existente…';
+    } else if (!r.ok) {
+      throw new Error('HTTP ' + r.status);
+    }
+  } catch(e) {
+    _log.textContent = 'Error: ' + e.message;
+    _btn.disabled = false; _btn.textContent = '↻ Refrescar ahora';
+    return;
+  }
+  pollStatus();
+}
+async function pollStatus() {
+  try {
+    const r = await fetch('/api/status');
+    const s = await r.json();
+    _log.textContent = (s.log || []).join('\n');
+    _log.scrollTop = _log.scrollHeight;
+    if (s.running) {
+      setTimeout(pollStatus, 800);
+    } else {
+      _showLogs(s.ok ? 'ok' : 'err', s.ok ? 'Scrape OK' : 'Scrape con errores');
+      _log.textContent += '\n\n' + (s.ok ? '✅ Listo, recargando…' : '⚠️  Terminó con errores, recargo igualmente…');
+      setTimeout(() => location.reload(), 1500);
+    }
+  } catch(e) {
+    _log.textContent += '\n[error sondeando: ' + e.message + ']';
+    _btn.disabled = false; _btn.textContent = '↻ Refrescar ahora';
+  }
+}
+// Si abro la pestaña mientras hay un scrape corriendo, engancharse en vivo
+if (_isHttp) {
+  fetch('/api/status').then(r => r.json()).then(s => {
+    if (s && s.running) {
+      _btn.disabled = true;
+      _btn.innerHTML = '<span class="spin">↻</span> scrapeando…';
+      _showLogs('live', 'Scrapeando…');
+      pollStatus();
+    }
+  }).catch(() => {});
+}
+</script>
+</body>
+</html>
