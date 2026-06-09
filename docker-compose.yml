@@ -1,0 +1,47 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: celica-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: celica
+      POSTGRES_PASSWORD: ${CELICA_DB_PASSWORD:-celica}
+      POSTGRES_DB: celica
+    volumes:
+      - celica_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U celica -d celica"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - celica_internal
+
+  celica:
+    build: .
+    container_name: celica
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      CELICA_BIND: 0.0.0.0
+      CELICA_PORT: "8765"
+      CELICA_DATABASE_URL: postgresql://celica:${CELICA_DB_PASSWORD:-celica}@db:5432/celica
+    volumes:
+      # export de backup legible (git) + dashboard generado
+      - ./celica_prices.csv:/app/celica_prices.csv
+      - ./dashboard.html:/app/dashboard.html
+      - ./celica_market.png:/app/celica_market.png
+    networks:
+      - sefer_default   # alcanzable por sefer-nginx / Cloudflare Tunnel
+      - celica_internal # habla con la BD, aislada del resto
+
+volumes:
+  celica_pgdata:
+
+networks:
+  sefer_default:
+    external: true
+  celica_internal:
+    driver: bridge

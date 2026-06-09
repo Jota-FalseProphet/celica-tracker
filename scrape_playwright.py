@@ -5,11 +5,12 @@
 
 Usa el mismo CSV que scrape.py. La columna 'fuente' diferencia el origen.
 """
-import csv, datetime, os, re, sys, time
+import datetime, os, re, sys, time
 from playwright.sync_api import sync_playwright
 
+import db
+
 HERE = os.path.dirname(os.path.abspath(__file__))
-CSV_PATH = os.path.join(HERE, "celica_prices.csv")
 UA = ("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36")
 
@@ -103,10 +104,11 @@ def scrape_wallapop(page):
         const kmM    = text.match(/([\\d.]+)\\s*km/i);
         const title  = (card.querySelector('[class*=title], h2, h3')?.innerText || text.split('\\n')[0] || '').trim();
         const loc    = (card.querySelector('[class*=location], [class*=Location]')?.innerText || '').trim();
+        const img    = (card.querySelector('img')?.src) || '';
         if (!priceM) return;
         out.push({ url: a.href, title, raw_price: priceM[1],
                    raw_year: yearM ? yearM[0] : null, raw_km: kmM ? kmM[1] : null,
-                   raw_city: loc });
+                   raw_city: loc, raw_img: img });
       });
       return out;
     }
@@ -132,6 +134,7 @@ def scrape_wallapop(page):
             "ciudad": r["raw_city"][:60],
             "cp": "",
             "url": r["url"],
+            "foto": r.get("raw_img", ""),
         })
     return cleaned
 
@@ -153,29 +156,16 @@ def main():
         browser.close()
 
     if not all_rows:
-        print("Sin datos nuevos (no escribo CSV).")
+        print("Sin datos nuevos (no escribo BD).")
         return
 
-    # de-duplicar contra lo ya escrito hoy en el CSV
-    existing = set()
-    if os.path.exists(CSV_PATH):
-        with open(CSV_PATH, encoding="utf-8") as f:
-            for r in csv.DictReader(f):
-                if r.get("fecha") == today:
-                    existing.add((r["fuente"], r["id"]))
-    fresh = [r for r in all_rows if (r["fuente"], r["id"]) not in existing]
-    print(f"  → {len(fresh)} nuevos para añadir al CSV")
-
-    fields = ["fecha","fuente","id","precio_eur","anio","km","modelo",
-              "combustible","transmision","ciudad","cp","url"]
-    file_exists = os.path.exists(CSV_PATH)
-    with open(CSV_PATH, "a", newline="", encoding="utf-8") as f:
-        w = csv.DictWriter(f, fieldnames=fields)
-        if not file_exists: w.writeheader()
-        for r in fresh:
-            r["fecha"] = today
-            w.writerow(r)
-    print(f"Guardado en {CSV_PATH}")
+    # El UPSERT (key, fecha) deduplica solo: re-ver el mismo anuncio hoy
+    # actualiza su fila en vez de duplicarla.
+    conn = db.connect()
+    db.init(conn)
+    db.save_rows(conn, all_rows, today)
+    conn.close()
+    print(f"Guardado {len(all_rows)} anuncios en BD ({db.DSN})")
 
 if __name__ == "__main__":
     main()
