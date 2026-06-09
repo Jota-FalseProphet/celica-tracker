@@ -2,20 +2,27 @@
 
 Mini-pipeline para seguir el mercado de Toyota Celica en España (foco: 2002-2006, generación T230) y detectar movimientos de precio.
 
-Scrapea Autoscout24 y Wallapop, guarda un histórico append-only en CSV, genera un dashboard estático y avisa por `kdialog` si la mediana se mueve ≥ 10% semana a semana.
+Scrapea Autoscout24 y Wallapop, guarda el histórico en **PostgreSQL** (con `celica_prices.csv` como export de backup legible), genera un dashboard estático y avisa por `kdialog` si la mediana se mueve ≥ 10% semana a semana.
 
 ## Stack
 
 - Python 3 + `requests` para Autoscout24 (lee `__NEXT_DATA__` del SSR).
 - Playwright (Chromium headless) para Wallapop.
+- **PostgreSQL** como fuente de verdad (`db.py`, psycopg 3). Modela el ciclo de
+  vida de cada anuncio (`listings` + `observations`) → nuevos, bajadas de precio,
+  días en venta y chollos salen gratis.
 - Chart.js (CDN) en el dashboard.
-- systemd user units para programar el aviso semanal y servir el dashboard con socket activation.
+- `serve.py` con **auto-scrape**: relanza el scrape solo a intervalos aleatorios
+  que promedian ~2h (con jitter y horas de silencio) para parecer un usuario real.
 
 ## Instalación
 
 ```bash
-pip install requests playwright
+pip install requests playwright "psycopg[binary]"
 playwright install chromium
+# y un Postgres accesible vía CELICA_DATABASE_URL (ver docker-compose.yml)
+export CELICA_DATABASE_URL=postgresql://celica:celica@localhost:5432/celica
+python3 migrate.py   # importa celica_prices.csv a la BD (idempotente)
 ```
 
 ## Uso
@@ -32,14 +39,53 @@ python3 build_dashboard.py    # genera dashboard.html
 
 | Archivo | Qué hace |
 |---|---|
-| `scrape.py` | Scraper de Autoscout24 |
-| `scrape_playwright.py` | Scraper de Wallapop |
-| `build_dashboard.py` | Genera `dashboard.html` desde el CSV |
+| `db.py` | Capa de datos Postgres (esquema, UPSERT idempotente, export/import CSV) |
+| `migrate.py` | Importa `celica_prices.csv` → BD (idempotente; el arranque ya lo hace solo) |
+| `scrape.py` | Scraper de Autoscout24 → BD |
+| `scrape_playwright.py` | Scraper de Wallapop → BD |
+| `build_dashboard.py` | Genera `dashboard.html` desde la BD y exporta el CSV de backup |
 | `check_alert.py` | Compara la mediana actual vs. la anterior y dispara `kdialog` |
-| `serve.py` | HTTP server con endpoints `/api/scrape`, `/api/status`, `/api/shutdown` |
+| `serve.py` | HTTP server (`/api/scrape`, `/api/status`) + auto-scrape en background |
 | `graph.py` | Genera `celica_market.png` (gráfico estático) |
 | `refresh_and_open.sh` | Script "todo en uno" |
-| `celica_prices.csv` | Histórico append-only: `fecha, fuente, id, precio_eur, anio, km, modelo, combustible, transmision, ciudad, cp, url` |
+| `celica_prices.csv` | Export de backup (git): `fecha, fuente, id, precio_eur, anio, km, modelo, combustible, transmision, ciudad, cp, url` |
+
+## Base de datos
+
+Postgres es la fuente de verdad. Dos tablas:
+
+- `listings` — un anuncio único (`key = fuente:id`) con metadatos y `first_seen` / `last_seen`.
+- `observations` — precio/km por anuncio y día. PK `(key, fecha)` ⇒ re-scrapear el
+  mismo día es **idempotente** (UPSERT), sin duplicados.
+
+`build_dashboard.py` exporta todo a `celica_prices.csv` tras cada generación, así
+que el histórico sigue siendo visible en los diffs de git.
+
+## Auto-scrape
+
+`serve.py` lanza un hilo que relanza el scrape solo. El intervalo es aleatorio
+(buckets ponderados 10 min–4 h, media ~2 h, +jitter ±15%) y respeta una ventana de
+silencio nocturna (por defecto 01:00–08:00) para no parecer un bot. Configurable:
+
+```
+CELICA_AUTOSCRAPE=0          # desactivar
+CELICA_QUIET_START=1         # inicio ventana de silencio (hora)
+CELICA_QUIET_END=8           # fin ventana de silencio (hora)
+```
+
+`/api/status` expone `next_scrape_at` y el dashboard muestra el próximo auto-scrape.
+
+## Docker / deploy
+
+```bash
+docker compose up -d --build     # levanta Postgres + celica; auto-migra el CSV
+docker compose logs -f celica
+```
+
+El servicio `db` (Postgres) vive en una red interna aislada (`celica_internal`);
+solo `celica` lo ve. `celica` también está en `sefer_default` para que lo alcancen
+sefer-nginx / Cloudflare Tunnel. Define `CELICA_DB_PASSWORD` en un `.env` para no
+usar la contraseña por defecto.
 
 ## Aviso semanal (systemd user)
 
@@ -51,15 +97,12 @@ systemctl --user start celica-check.service     # ejecutar ahora
 journalctl --user -u celica-check.service       # logs
 ```
 
-## Server del dashboard (socket activation)
+## Server del dashboard
 
-`serve.py` escucha en `127.0.0.1:8765`. No se arranca a mano: hay un `.socket` systemd que lo despierta al primer request y lo deja apagado el resto del tiempo.
-
-```bash
-systemctl --user enable --now celica-tracker.socket
-```
-
-El botón "▶ Arrancar server" del dashboard hace `fetch` al puerto y systemd levanta el servicio.
+`serve.py` escucha en `:8765` (en el contenedor `0.0.0.0`). Sirve `dashboard.html`,
+expone `/api/scrape` (refrescar a mano) y `/api/status` (estado + próximo
+auto-scrape), y corre el hilo de auto-scrape. En el deploy lo levanta docker
+compose con `restart: unless-stopped`.
 
 ## Fuentes
 

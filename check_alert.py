@@ -3,10 +3,11 @@
 precio del rango 2002-2006 entre la última recolección y la anterior.
 Si el cambio es >=10%, lanza una notificación KDE (kdialog).
 """
-import csv, datetime, os, statistics, subprocess, sys
+import datetime, os, statistics, subprocess, sys
+
+import db
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-CSV_PATH = os.path.join(HERE, "celica_prices.csv")
 LOG = os.path.join(HERE, "alert.log")
 THRESHOLD = 0.10  # 10%
 
@@ -24,35 +25,31 @@ def run(cmd):
 
 def medians_by_date():
     """{fecha: mediana_2002_2006} ordenadas."""
+    conn = db.connect()
+    rows = db.observations_join(conn)
+    conn.close()
     by_date = {}
-    with open(CSV_PATH, encoding="utf-8") as f:
-        for r in csv.DictReader(f):
-            try: anio = int(r["anio"]) if r["anio"] else None
-            except: anio = None
-            try: precio = int(r["precio_eur"]) if r["precio_eur"] else None
-            except: precio = None
-            if anio and 2002 <= anio <= 2006 and precio and precio < 50000:
-                by_date.setdefault(r["fecha"], []).append(precio)
+    for r in rows:
+        anio, precio = r["anio"], r["precio_eur"]
+        if anio and 2002 <= anio <= 2006 and precio and precio < 50000:
+            by_date.setdefault(r["fecha"], []).append(precio)
     return [(d, statistics.median(by_date[d]), len(by_date[d]))
             for d in sorted(by_date)]
 
 def best_value_picks(latest_date, n=3):
     """Top n anuncios del rango objetivo por mejor €/km."""
-    rows = []
-    with open(CSV_PATH, encoding="utf-8") as f:
-        for r in csv.DictReader(f):
-            if r["fecha"] != latest_date: continue
-            try:
-                anio = int(r["anio"]) if r["anio"] else None
-                precio = int(r["precio_eur"]) if r["precio_eur"] else None
-                km = int(r["km"]) if r["km"] else None
-            except: continue
-            if not (anio and precio and km): continue
-            if 2002 <= anio <= 2006 and precio < 50000 and km > 1000:
-                # heurística: precio bajo y km bajo
-                rows.append((precio + km*0.05, r))
-    rows.sort()
-    return [r for _, r in rows[:n]]
+    conn = db.connect()
+    rows = db.rows_for_date(conn, latest_date)
+    conn.close()
+    picks = []
+    for r in rows:
+        anio, precio, km = r["anio"], r["precio_eur"], r["km"]
+        if not (anio and precio and km): continue
+        if 2002 <= anio <= 2006 and precio < 50000 and km > 1000:
+            # heurística: precio bajo y km bajo
+            picks.append((precio + km*0.05, r))
+    picks.sort(key=lambda t: t[0])
+    return [r for _, r in picks[:n]]
 
 def notify(title, body):
     """kdialog --passivepopup bloquea hasta cerrar/timeout, así que lo soltamos

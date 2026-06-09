@@ -5,26 +5,21 @@
 - Panel 2: evolución temporal (mediana del rango 2002-2006 a lo largo de
   las recolecciones acumuladas).
 """
-import csv, datetime, os, statistics, collections
+import datetime, os, statistics, collections
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 
+import db
+
 HERE = os.path.dirname(os.path.abspath(__file__))
-CSV_PATH = os.path.join(HERE, "celica_prices.csv")
 OUT_PATH = os.path.join(HERE, "celica_market.png")
 
 def load():
-    rows = []
-    with open(CSV_PATH, encoding="utf-8") as f:
-        for r in csv.DictReader(f):
-            try:
-                r["precio_eur"] = int(r["precio_eur"]) if r["precio_eur"] else None
-                r["anio"] = int(r["anio"]) if r["anio"] else None
-                r["km"] = int(r["km"]) if r["km"] else None
-            except: continue
-            rows.append(r)
+    conn = db.connect()
+    rows = db.observations_join(conn)
+    conn.close()
     return rows
 
 def main():
