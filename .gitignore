@@ -4,3 +4,9 @@ __pycache__/
 last_run.log
 alert.log
 systemd.log
+# datos locales / sqlite legacy (la fuente de verdad es Postgres en su volumen)
+data/
+*.db
+*.db-wal
+*.db-shm
+.env

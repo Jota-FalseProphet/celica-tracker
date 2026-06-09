@@ -2,12 +2,13 @@
 """Recolecta precios de Toyota Celica 2002-2006 en España (Autoscout24).
 Wallapop / Coches.net requieren navegador (SPA / anti-bot).
 """
-import csv, datetime, json, os, re, sys, time, urllib.parse, urllib.request
+import datetime, json, os, re, sys, time, urllib.parse, urllib.request
+
+import db
 
 UA = ("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36")
 HERE = os.path.dirname(os.path.abspath(__file__))
-CSV_PATH = os.path.join(HERE, "celica_prices.csv")
 
 def fetch(url):
     req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept-Language": "es-ES,es;q=0.9"})
@@ -54,9 +55,22 @@ def autoscout24_pages():
             mileage = t.get("mileage")
             try: mileage = int(mileage) if mileage else None
             except: mileage = None
+            full_url = "https://www.autoscout24.es" + (l.get("url") or "")
+            # `identifier` viene como dict basura; preferimos el UUID de la URL.
+            gid = l.get("id")
+            if not isinstance(gid, (str, int)) or not str(gid).strip():
+                m_uuid = re.search(
+                    r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}",
+                    full_url)
+                gid = m_uuid.group(0) if m_uuid else ""
+            imgs = l.get("images") or []
+            foto = ""
+            if imgs:
+                # sube la resolución del thumbnail (.../250x188.webp → 480x360)
+                foto = re.sub(r"/\d+x\d+\.(?:webp|jpg|png)$", "/480x360.webp", imgs[0])
             rows.append({
                 "fuente": "autoscout24",
-                "id": l.get("identifier") or l.get("id"),
+                "id": str(gid),
                 "precio_eur": price_eur,
                 "anio": year,
                 "km": mileage,
@@ -65,7 +79,8 @@ def autoscout24_pages():
                 "transmision": v.get("transmission"),
                 "ciudad": loc.get("city"),
                 "cp": loc.get("zip"),
-                "url": "https://www.autoscout24.es" + (l.get("url") or ""),
+                "url": full_url,
+                "foto": foto,
             })
         page += 1
         time.sleep(1)
@@ -75,16 +90,11 @@ def main():
     today = datetime.date.today().isoformat()
     rows = autoscout24_pages()
     print(f"[{today}] Autoscout24: {len(rows)} anuncios")
-    file_exists = os.path.exists(CSV_PATH)
-    fields = ["fecha","fuente","id","precio_eur","anio","km","modelo",
-              "combustible","transmision","ciudad","cp","url"]
-    with open(CSV_PATH, "a", newline="", encoding="utf-8") as f:
-        w = csv.DictWriter(f, fieldnames=fields)
-        if not file_exists: w.writeheader()
-        for r in rows:
-            r["fecha"] = today
-            w.writerow(r)
-    print(f"Guardado en {CSV_PATH}")
+    conn = db.connect()
+    db.init(conn)
+    db.save_rows(conn, rows, today)
+    conn.close()
+    print(f"Guardado en BD ({db.DSN})")
     return rows
 
 if __name__ == "__main__":

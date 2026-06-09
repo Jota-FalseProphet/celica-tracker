@@ -1,0 +1,5 @@
+.git
+__pycache__
+*.pyc
+README.md
+refresh_and_open.sh
