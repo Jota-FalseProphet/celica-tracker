@@ -249,9 +249,10 @@ CSS = """
   .auth-links a:hover{color:var(--accent)}
   #list-filter{max-width:200px}
   .tolist{position:absolute;top:8px;left:36px;background:none;border:0;cursor:pointer;padding:2px;
-    color:var(--accent);opacity:0;transition:opacity .15s,transform .15s,color .15s}
+    color:#fff;filter:drop-shadow(0 1px 2px rgba(0,0,0,.55));opacity:0;
+    transition:opacity .15s,transform .15s,color .15s}
   .card:hover .tolist{opacity:.9}
-  .tolist:hover{color:var(--accent-2);transform:scale(1.2)}
+  .tolist:hover{color:#fff;transform:scale(1.2)}
   .tolist svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8}
   .list-menu{position:fixed;z-index:210;background:var(--panel);border:1px solid var(--border);
     border-radius:12px;padding:8px;min-width:200px;box-shadow:0 16px 40px rgba(0,0,0,.45);
