@@ -999,6 +999,95 @@ async function listsCreate(){
 """
 
 
+# JS de la página de login (sin llaves de f-string: raw).
+LOGIN_JS = r"""<script>
+const F={login:'f-login',register:'f-register',verify:'f-verify',reset:'f-reset',resetdo:'f-resetdo'};
+const T={login:'Entra para ver el mercado',register:'Crea tu cuenta',verify:'Verifica tu email',reset:'Restablecer contraseña',resetdo:'Nueva contraseña'};
+let pend='';
+function view(v){for(const k in F)document.getElementById(F[k]).style.display=(k===v)?'flex':'none';document.getElementById('subt').textContent=T[v]||'';msg('');}
+function msg(t,ok){const e=document.getElementById('msg');e.textContent=t||'';e.classList.toggle('ok',!!ok);}
+function gv(id){return document.getElementById(id).value;}
+async function api(p,d){const r=await fetch(p,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d||{})});let j={};try{j=await r.json();}catch(e){}if(!r.ok)throw new Error(j.error||('HTTP '+r.status));return j;}
+document.getElementById('f-login').addEventListener('submit',async e=>{e.preventDefault();try{await api('/api/login',{email:gv('li-email').trim(),password:gv('li-pass')});location.href='/';}catch(err){if(/verificar/i.test(err.message)){pend=gv('li-email').trim();view('verify');msg('Cuenta sin verificar. Mete el código del email.');}else msg(err.message);}});
+document.getElementById('f-register').addEventListener('submit',async e=>{e.preventDefault();const email=gv('rg-email').trim();try{await api('/api/register',{email:email,password:gv('rg-pass')});pend=email;view('verify');msg('Código enviado a '+email,true);}catch(err){msg(err.message);}});
+document.getElementById('f-verify').addEventListener('submit',async e=>{e.preventDefault();try{await api('/api/verify',{email:pend,code:gv('vf-code').trim()});view('login');msg('Cuenta verificada. Ya puedes entrar.',true);}catch(err){msg(err.message);}});
+function resendCode(){if(!pend){msg('Escribe tu email primero');return;}api('/api/resend',{email:pend}).then(()=>msg('Código reenviado',true)).catch(err=>msg(err.message));}
+document.getElementById('f-reset').addEventListener('submit',async e=>{e.preventDefault();const email=gv('rr-email').trim();try{await api('/api/reset/request',{email:email});pend=email;view('resetdo');msg('Si el email existe, te enviamos un código.',true);}catch(err){msg(err.message);}});
+document.getElementById('f-resetdo').addEventListener('submit',async e=>{e.preventDefault();try{await api('/api/reset/confirm',{email:pend,code:gv('rd-code').trim(),password:gv('rd-pass')});view('login');msg('Contraseña cambiada. Entra de nuevo.',true);}catch(err){msg(err.message);}});
+const _tb=document.getElementById('theme-btn');if(_tb)_tb.addEventListener('click',()=>{const cur=document.documentElement.getAttribute('data-theme')||'dark';const t=cur==='dark'?'light':'dark';document.documentElement.setAttribute('data-theme',t);try{localStorage.setItem('celica_theme',t);}catch(e){}});
+</script>"""
+
+
+def login_html():
+    """Página /login con la MISMA estética del dashboard: CSS real, cielo/nubes/
+    grain, figuras 3D (scene.js), tema claro/oscuro y animación de entrada."""
+    head = (
+        '<!doctype html>\n<html lang="es" data-theme="dark">\n<head>\n'
+        '<meta charset="utf-8">\n'
+        '<meta name="viewport" content="width=device-width,initial-scale=1">\n'
+        '<title>Celica Tracker · Entrar</title>\n'
+        "<script>(function(){try{var t=localStorage.getItem('celica_theme')||"
+        "(matchMedia('(prefers-color-scheme: light)').matches?'light':'dark');"
+        "document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>\n"
+        '<script type="module" src="/scene.js"></script>\n'
+        f"<style>{CSS}</style>\n"
+        "<style>"
+        ".login-wrap{position:relative;z-index:2;min-height:100vh;display:grid;place-items:center;padding:22px}"
+        ".login-card{width:min(390px,100%);text-align:center;animation:fadeInUp .55s ease both}"
+        ".login-card .auth-avatar{margin-left:auto;margin-right:auto}"
+        ".login-card h1{font-size:1.55rem;margin:2px 0;letter-spacing:.3px}"
+        ".login-sub{color:var(--muted);font-size:.86rem;margin:0 0 18px}"
+        ".login-card .auth-form{text-align:left}"
+        "</style>\n</head>\n<body>\n"
+        '<div class="sky" aria-hidden="true"></div>\n'
+        '<div class="clouds" aria-hidden="true"></div>\n'
+        '<canvas class="gl" aria-hidden="true"></canvas>\n'
+        '<div class="grain" aria-hidden="true"></div>\n'
+        '<div class="floating-actions">'
+        '<button id="theme-btn" class="theme-btn" title="Cambiar tema" aria-label="Cambiar tema">'
+        f"{ICON_SUN}{ICON_MOON}</button></div>\n"
+    )
+    card = (
+        '<div class="login-wrap"><div class="modal-card login-card">\n'
+        f'<div class="auth-avatar">{ICON_USER}</div>\n'
+        '<h1>Celica Tracker</h1>\n'
+        '<p class="login-sub" id="subt">Entra para ver el mercado</p>\n'
+        '<p class="auth-msg" id="msg"></p>\n'
+        '<form id="f-login" class="auth-form" autocomplete="on">'
+        '<input type="text" id="li-email" placeholder="email o usuario" autocomplete="username" required>'
+        '<input type="password" id="li-pass" placeholder="contraseña" autocomplete="current-password" required>'
+        '<button type="submit" class="auth-go">Entrar</button>'
+        '<div class="auth-links"><a href="#" onclick="view(\'register\');return false">Crear cuenta</a>'
+        '<a href="#" onclick="view(\'reset\');return false">Olvidé mi contraseña</a></div>'
+        '<p class="auth-hint">¿Solo echar un vistazo? Entra con <b>guest</b> / <b>guest</b></p>'
+        '</form>'
+        '<form id="f-register" class="auth-form" style="display:none" autocomplete="on">'
+        '<input type="email" id="rg-email" placeholder="email" autocomplete="email" required>'
+        '<input type="password" id="rg-pass" placeholder="contraseña (mín. 8)" autocomplete="new-password" required>'
+        '<button type="submit" class="auth-go">Crear cuenta</button>'
+        '<div class="auth-links"><a href="#" onclick="view(\'login\');return false">Ya tengo cuenta</a></div>'
+        '</form>'
+        '<form id="f-verify" class="auth-form" style="display:none">'
+        '<input type="text" id="vf-code" placeholder="código de 6 dígitos" inputmode="numeric" maxlength="6" required>'
+        '<button type="submit" class="auth-go">Verificar</button>'
+        '<div class="auth-links"><a href="#" onclick="resendCode();return false">Reenviar código</a>'
+        '<a href="#" onclick="view(\'login\');return false">Volver</a></div>'
+        '</form>'
+        '<form id="f-reset" class="auth-form" style="display:none" autocomplete="on">'
+        '<input type="email" id="rr-email" placeholder="email" autocomplete="email" required>'
+        '<button type="submit" class="auth-go">Enviar código</button>'
+        '<div class="auth-links"><a href="#" onclick="view(\'login\');return false">Volver</a></div>'
+        '</form>'
+        '<form id="f-resetdo" class="auth-form" style="display:none">'
+        '<input type="text" id="rd-code" placeholder="código de 6 dígitos" inputmode="numeric" maxlength="6" required>'
+        '<input type="password" id="rd-pass" placeholder="nueva contraseña (mín. 8)" autocomplete="new-password" required>'
+        '<button type="submit" class="auth-go">Cambiar contraseña</button>'
+        '</form>'
+        '</div></div>\n'
+    )
+    return head + card + LOGIN_JS + "\n</body>\n</html>"
+
+
 def main():
     conn = db.connect()
     db.init(conn)
