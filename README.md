@@ -2,7 +2,7 @@
 
 Mini-pipeline para seguir el mercado de Toyota Celica en España (foco: 2002-2006, generación T230) y detectar movimientos de precio.
 
-Scrapea Autoscout24 y Wallapop, guarda el histórico en **PostgreSQL** (con `celica_prices.csv` como export de backup legible), genera un **dashboard web interactivo** (tema claro/oscuro, gráficas con zoom, fotos de cada coche, favoritos, buscador/filtros, figuras 3D) y avisa por `kdialog` si la mediana se mueve ≥ 10% semana a semana.
+Scrapea Autoscout24 y Wallapop, guarda el histórico en **PostgreSQL** (con `celica_prices.csv` como export de backup legible), sirve un **dashboard web interactivo** (tema claro/oscuro, gráficas con zoom, fotos de cada coche, buscador/filtros, figuras 3D) con **sistema multiusuario** (login obligatorio, favoritos y listas propias por usuario, panel de admin) y avisa por `kdialog` si la mediana se mueve ≥ 10% semana a semana.
 
 ## Stack
 
@@ -14,13 +14,19 @@ Scrapea Autoscout24 y Wallapop, guarda el histórico en **PostgreSQL** (con `cel
 - Frontend: Chart.js + `chartjs-plugin-zoom`, **three.js** (figuras 3D cromadas
   vía WebGL), fuentes Saira + JetBrains Mono. Tema claro/oscuro, estilo copiado
   del portfolio (cielo frutiger/PS2, paneles glass, iconos SVG).
-- `serve.py` con **auto-scrape**: relanza el scrape solo a intervalos aleatorios
-  que promedian ~2h (con jitter y horas de silencio) para parecer un usuario real.
+- **FastAPI** (`app.py`, servido con `uvicorn`): sirve el dashboard y la página
+  `/login`, expone la API de auth/favoritos/listas/admin y arranca el **auto-scrape**
+  en background (`scrape_runner.py`) a intervalos aleatorios ~2h (con jitter y horas
+  de silencio) para parecer un usuario real.
+- Auth en `auth.py` (PBKDF2, sesión por cookie httponly). Correo en `email_send.py`:
+  verificación de cuenta y reset de contraseña vía **Resend**, con el transporte
+  enchufable a SMTP (para el mailserver propio). `serve.py` (stdlib) queda como
+  servidor legacy, ya no se usa en el deploy.
 
 ## Instalación
 
 ```bash
-pip install requests playwright "psycopg[binary]"
+pip install requests playwright "psycopg[binary]" fastapi "uvicorn[standard]" resend
 playwright install chromium
 # y un Postgres accesible vía CELICA_DATABASE_URL (ver docker-compose.yml)
 export CELICA_DATABASE_URL=postgresql://celica:celica@localhost:5432/celica
@@ -41,19 +47,23 @@ python3 build_dashboard.py    # genera dashboard.html
 
 | Archivo | Qué hace |
 |---|---|
-| `db.py` | Capa de datos Postgres (esquema, UPSERT idempotente, export/import CSV) |
+| `app.py` | Servidor **FastAPI** (uvicorn): dashboard, `/login`, API auth/favoritos/listas/admin/scrape |
+| `auth.py` | Cuentas: registro/login (PBKDF2), sesiones, verificación de email, reset de contraseña, gestión admin |
+| `email_send.py` | Envío de correo (verificación/reset) vía **Resend**; transporte enchufable a SMTP |
+| `scrape_runner.py` | Motor de scrape + scheduler de auto-scrape (extraído de `serve.py`) |
+| `db.py` | Capa de datos Postgres (esquema, UPSERT idempotente, favoritos/listas, export/import CSV) |
 | `migrate.py` | Importa `celica_prices.csv` → BD (idempotente; el arranque ya lo hace solo) |
 | `scrape.py` | Scraper de Autoscout24 → BD |
 | `scrape_playwright.py` | Scraper de Wallapop → BD |
 | `build_dashboard.py` | Genera `dashboard.html` desde la BD y exporta el CSV de backup |
 | `scene.js` + `three.module.js` | Figuras 3D cromadas (WebGL). Fallback sin WebGL: sin figuras |
 | `check_alert.py` | Compara la mediana actual vs. la anterior y dispara `kdialog` |
-| `serve.py` | HTTP server (`/api/scrape`, `/api/status`) + auto-scrape en background |
+| `serve.py` | Servidor stdlib **legacy** (sustituido por `app.py`); se mantiene de referencia |
 | `graph.py` | Genera `celica_market.png` (gráfico estático PNG) |
 | `refresh_and_open.sh` | Script "todo en uno" |
 | `Dockerfile` · `docker-compose.yml` | Imagen del scraper + stack (celica + Postgres) |
 | `celica_prices.csv` | Export de backup (git): `fecha, fuente, id, precio_eur, anio, km, modelo, combustible, transmision, ciudad, cp, url, foto` |
-| `TODO.md` | Roadmap multiusuario (roles, admin único que puede refrescar) |
+| `TODO.md` | Estado del multiusuario (nivel 1 hecho) y roadmap (niveles 2-3) |
 
 ## Base de datos
 
@@ -62,6 +72,15 @@ Postgres es la fuente de verdad. Dos tablas:
 - `listings` — un anuncio único (`key = fuente:id`) con metadatos y `first_seen` / `last_seen`.
 - `observations` — precio/km por anuncio y día. PK `(key, fecha)` ⇒ re-scrapear el
   mismo día es **idempotente** (UPSERT), sin duplicados.
+
+Tablas del multiusuario (aditivas, no tocan las anteriores):
+
+- `users` — `id, email, password_hash, role ('user'|'admin'), verified, created_at`.
+- `sessions` — token de sesión → usuario (la cookie httponly).
+- `verification_codes` — códigos de 6 dígitos para verificar email y resetear contraseña.
+- `favorites` — `(user_id, fav_id)`; `fav_id` es la URL del anuncio (sin FK, así
+  sobrevive aunque el anuncio desaparezca del mercado).
+- `lists` + `list_items` — listas nombradas por usuario y sus anuncios.
 
 `build_dashboard.py` exporta todo a `celica_prices.csv` tras cada generación, así
 que el histórico sigue siendo visible en los diffs de git.
@@ -87,9 +106,10 @@ CELICA_QUIET_END=8           # fin ventana de silencio (hora)
 - **Señales de compra** por anuncio: `NUEVO` (visto hoy por primera vez),
   `OPORTUNIDAD` (precio ≤ 85% del esperado según ajuste precio~km) y
   `↓ -X%` (bajada respecto a la observación previa).
-- **Favoritos** ⭐ por coche (persisten en `localStorage`), **buscador**, **orden**
-  y **filtros** (fuente, solo oportunidades, solo favoritos). Los recuadros de
-  estadísticas de arriba son clicables (aplican el filtro/orden correspondiente).
+- **Favoritos** ⭐ y **listas nombradas** ☰ por usuario (en la BD, sincronizados
+  entre dispositivos), **buscador**, **orden** y **filtros** (fuente, solo
+  oportunidades, solo favoritos, por lista). Los recuadros de estadísticas de
+  arriba son clicables (aplican el filtro/orden correspondiente).
 - **Gráficas** (Chart.js): precio vs km, histórico con banda intercuartil,
   distribución de precios y mediana por año. Zoom arrastrando para seleccionar un
   rango, botón para reiniciar y ampliar a pantalla completa.
@@ -123,12 +143,34 @@ systemctl --user start celica-check.service     # ejecutar ahora
 journalctl --user -u celica-check.service       # logs
 ```
 
+## Multiusuario
+
+El dashboard exige login: `GET /` redirige a **`/login`** si no hay sesión.
+
+- **Cuentas**: registro con **verificación por email** (código de 6 dígitos),
+  login con contraseña (PBKDF2) y sesión en cookie httponly. **Reset de contraseña**
+  por el mismo flujo de código. Correo vía Resend desde `noreply@yostesis.online`.
+- **Roles** `user` / `admin` (`users.role`). El admin se marca a mano:
+  `UPDATE users SET role='admin' WHERE email='…'`.
+- **Solo admin** puede forzar el scrape (botón "Refrescar ahora" y `POST /api/scrape`
+  → 401 anónimo / 403 user). El auto-scrape de fondo sigue corriendo igual.
+- **Panel de admin** (botón "Usuarios"): listar/crear usuarios, cambiar email,
+  contraseña, rol y verificado, y borrar (con guard del último admin).
+- **Favoritos y listas** por usuario, sincronizados en la BD.
+- Usuario compartido **`guest` / `guest`** para quien solo quiere mirar.
+
+Endpoints principales: `POST /api/register · /api/verify · /api/login · /api/logout`,
+`/api/resend · /api/reset/request · /api/reset/confirm`, `GET /api/me`,
+`GET/POST/DELETE /api/favorites`, `/api/lists` (+ `/{id}/items`), `/api/admin/users…`
+y `POST /api/scrape` (admin). Config de correo y cookies por env var
+(`CELICA_MAIL_BACKEND`, `CELICA_RESEND_API_KEY`, `CELICA_SMTP_*`, `CELICA_SECURE_COOKIES`).
+
 ## Server del dashboard
 
-`serve.py` escucha en `:8765` (en el contenedor `0.0.0.0`). Sirve `dashboard.html`,
-expone `/api/scrape` (refrescar a mano) y `/api/status` (estado + próximo
-auto-scrape), y corre el hilo de auto-scrape. En el deploy lo levanta docker
-compose con `restart: unless-stopped`.
+`app.py` (FastAPI, `uvicorn app:app`) escucha en `:8765` (en el contenedor
+`0.0.0.0`). Sirve `dashboard.html` y `/login`, expone la API (auth, favoritos,
+listas, admin, `/api/scrape`, `/api/status`) y arranca el hilo de auto-scrape. En
+el deploy lo levanta docker compose con `restart: unless-stopped`.
 
 ## Fuentes
 
