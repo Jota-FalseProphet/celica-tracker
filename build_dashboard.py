@@ -820,10 +820,7 @@ function openAccountMenu(){
 }
 async function doLogout(){
   try{await api('/api/logout',{method:'POST'});}catch(e){}
-  CELICA.user=null;CELICA.lists=[];CELICA.listFilter=null;favs=new Set();
-  document.querySelectorAll('.tolist').forEach(b=>b.remove());
-  if(_am)_am.classList.remove('open');
-  renderAuthUI();renderListFilter();paintAllFavs();apply();toast('Sesión cerrada');
+  location.href='/login';
 }
 
 // ---- Listas: botón por tarjeta + menú ----
