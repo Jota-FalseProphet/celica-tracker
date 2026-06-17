@@ -420,6 +420,9 @@ CSS = """
   .controls select,.user-row select,.admin-new select,#list-filter{appearance:none;-webkit-appearance:none;
     padding-right:30px;background-repeat:no-repeat;background-position:right 10px center;
     background-image:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>")}
+  /* tras la carga inicial, no re-animar las cards al filtrar/ordenar/favoritar */
+  body.ready .card{animation:none}
+  .lists-row-name{flex:1;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 """
 
 JS_LOGIC = r"""
@@ -643,6 +646,7 @@ function apply(){
 
 // entrada escalonada de tarjetas
 containers.forEach(cont=>Array.from(cont.querySelectorAll('.card')).forEach((c,i)=>{c.style.animationDelay=Math.min(i*18,360)+'ms';}));
+setTimeout(()=>document.body.classList.add('ready'),800);  // congela la animación de entrada
 apply();
 
 // ---- Tabs ----
@@ -746,7 +750,7 @@ function authView(v){
   const t=document.getElementById('auth-title');if(t)t.textContent=AUTH_TITLES[v]||'Cuenta';
   authMsg('');
 }
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeAuth();closeAdmin();}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeAuth();closeAdmin();closeLists();}});
 
 document.getElementById('form-login').addEventListener('submit',async e=>{e.preventDefault();
   try{const d=await api('/api/login',{method:'POST',body:JSON.stringify({email:gv('li-email').trim(),password:gv('li-pass')})});
@@ -803,9 +807,11 @@ function renderAuthUI(){
 function openAccountMenu(){
   if(!_am){_am=document.createElement('div');_am.className='list-menu';document.body.appendChild(_am);
     document.addEventListener('click',e=>{if(_am.classList.contains('open')&&!_am.contains(e.target)&&!e.target.closest('#acct-btn'))_am.classList.remove('open');});}
+  if(_am.classList.contains('open')){_am.classList.remove('open');return;}  // toggle: 2º click cierra
   _am.innerHTML='';
   const info=document.createElement('div');info.style.cssText='padding:6px 9px;font-size:12px;color:var(--muted)';info.textContent=CELICA.user.email;_am.appendChild(info);
   const mk=(txt,fn)=>{const a=document.createElement('label');a.textContent=txt;a.addEventListener('click',fn);_am.appendChild(a);};
+  mk('Mis listas',()=>{_am.classList.remove('open');openLists();});
   mk('Cambiar contraseña',()=>{_am.classList.remove('open');openAuth();authView('reset');const i=document.getElementById('rr-email');if(i)i.value=CELICA.user.email;});
   mk('Cerrar sesión',doLogout);
   const acct=document.getElementById('acct-btn');const r=acct.getBoundingClientRect();
@@ -950,6 +956,41 @@ async function adminCreate(){
     if(ie)ie.value='';if(ip)ip.value='';
     adminMsg('Usuario creado ✓',true);loadAdminUsers();
   }catch(e){adminMsg(e.message);}
+}
+
+// ---- Modal "Mis listas" (crear / borrar listas propias) ----
+function openLists(){const m=document.getElementById('lists-modal');if(!m)return;m.classList.add('open');renderListsModal();}
+function closeLists(){const m=document.getElementById('lists-modal');if(m)m.classList.remove('open');}
+function listsMsg(t,ok){const e=document.getElementById('lists-msg');if(e){e.textContent=t||'';e.classList.toggle('ok',!!ok);}}
+function renderListsModal(){
+  const box=document.getElementById('lists-box');if(!box)return;box.innerHTML='';listsMsg('');
+  if(!CELICA.lists.length){box.textContent='Aún no tienes listas. Crea una abajo 👇';return;}
+  CELICA.lists.forEach(l=>{
+    const row=_el('div','user-row');
+    const main=_el('div','ur-main');
+    const name=_el('span','lists-row-name',{textContent:l.name});
+    const cnt=_el('span','ur-badge',{textContent:l.items.length+' coches'});
+    const del=_el('button','ur-del',{textContent:'Eliminar'});
+    main.appendChild(name);main.appendChild(cnt);main.appendChild(del);
+    row.appendChild(main);box.appendChild(row);
+    del.addEventListener('click',async()=>{
+      if(!confirm('¿Eliminar la lista "'+l.name+'"?'))return;
+      try{await api('/api/lists/'+l.id,{method:'DELETE'});
+        CELICA.lists=CELICA.lists.filter(x=>x.id!==l.id);
+        if(CELICA.listFilter&&CELICA.listFilter.id===l.id)CELICA.listFilter=null;
+        renderListsModal();renderListFilter();apply();
+      }catch(e){listsMsg(e.message);}
+    });
+  });
+}
+async function listsCreate(){
+  const name=gv('nl-name').trim();
+  if(!name){listsMsg('Escribe un nombre');return;}
+  try{const d=await api('/api/lists',{method:'POST',body:JSON.stringify({name:name})});
+    CELICA.lists.push({id:d.id,name:name,items:[]});
+    const i=document.getElementById('nl-name');if(i)i.value='';
+    renderListsModal();renderListFilter();listsMsg('Lista creada ✓',true);
+  }catch(e){listsMsg(e.message);}
 }
 
 // ---- Arranque: ¿hay sesión? ----
@@ -1215,6 +1256,25 @@ def main():
         <select id="nu-role"><option value="user">user</option><option value="admin">admin</option></select>
         <button class="auth-go" onclick="adminCreate()">Crear</button>
       </div>
+    </div>
+  </div>
+</div>
+''')
+
+    # --- Modal "Mis listas" (cualquier usuario logueado) ---
+    parts.append(f'''<div id="lists-modal" class="modal" onclick="if(event.target===this)closeLists()">
+  <div class="modal-card">
+    <button class="modal-x" onclick="closeLists()" aria-label="Cerrar">×</button>
+    <div class="auth-avatar">{ICON_LIST}</div>
+    <h3>Mis listas</h3>
+    <p id="lists-msg" class="auth-msg"></p>
+    <div id="lists-box" class="admin-users"></div>
+    <div class="admin-new">
+      <div class="admin-new-row">
+        <input id="nl-name" type="text" placeholder="nombre de la nueva lista" maxlength="80">
+        <button class="auth-go" onclick="listsCreate()">Crear lista</button>
+      </div>
+      <p style="font-size:12px;color:var(--muted);margin:10px 0 0">Para añadir coches a una lista, pasa el ratón por una tarjeta y pulsa el icono <b>☰</b>.</p>
     </div>
   </div>
 </div>
