@@ -28,6 +28,17 @@ services:
       CELICA_BIND: 0.0.0.0
       CELICA_PORT: "8765"
       CELICA_DATABASE_URL: postgresql://celica:${CELICA_DB_PASSWORD:-celica}@db:5432/celica
+      # --- Correo (verificación / reset). Por defecto Resend (cuenta de Sefer).
+      # Cuando el mailserver propio esté operativo: CELICA_MAIL_BACKEND=smtp + SMTP_*
+      CELICA_MAIL_BACKEND: ${CELICA_MAIL_BACKEND:-resend}
+      CELICA_MAIL_FROM: ${CELICA_MAIL_FROM:-Celica Tracker <noreply@yostesis.online>}
+      CELICA_RESEND_API_KEY: ${CELICA_RESEND_API_KEY:-}
+      CELICA_SMTP_HOST: ${CELICA_SMTP_HOST:-}
+      CELICA_SMTP_PORT: ${CELICA_SMTP_PORT:-587}
+      CELICA_SMTP_USER: ${CELICA_SMTP_USER:-}
+      CELICA_SMTP_PASSWORD: ${CELICA_SMTP_PASSWORD:-}
+      # Cookies seguras (la web va por HTTPS vía Cloudflare). Pon 0 para test en http.
+      CELICA_SECURE_COOKIES: ${CELICA_SECURE_COOKIES:-1}
     volumes:
       # export de backup legible (git) + dashboard generado
       - ./celica_prices.csv:/app/celica_prices.csv

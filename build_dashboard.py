@@ -46,6 +46,11 @@ ICON_REFRESH = _SVG.format('<polyline points="23 4 23 10 17 10"/><polyline point
 ICON_RESET = _SVG.format('<polyline points="1 4 1 10 7 10"/>'
                          '<path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>')
 ICON_EXPAND = _SVG.format('<path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/>')
+ICON_USER = _SVG.format('<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>'
+                        '<circle cx="12" cy="7" r="4"/>')
+ICON_USERS = _SVG.format('<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>'
+                         '<circle cx="9" cy="7" r="4"/>'
+                         '<path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>')
 
 
 def linfit(xs, ys):
@@ -163,9 +168,9 @@ CSS = """
   .pill .dot{width:8px;height:8px;border-radius:50%;background:var(--muted2)}
   .pill .dot.on{background:var(--green);box-shadow:0 0 8px var(--green)}
   .pill .dot.live{background:var(--gold);box-shadow:0 0 8px var(--gold);animation:pulse 1.2s ease-in-out infinite}
-  .theme-btn{margin-left:auto;background:var(--panel);border:1px solid var(--border);color:var(--text);
-    width:40px;height:40px;border-radius:10px;cursor:pointer;display:grid;place-items:center;
-    transition:transform .15s,border-color .15s}
+  .theme-btn{background:var(--panel);border:1px solid var(--border);color:var(--text);
+    width:42px;height:42px;border-radius:12px;cursor:pointer;display:grid;place-items:center;
+    transition:transform .15s,border-color .15s;box-shadow:0 4px 16px rgba(0,0,0,.18)}
   .theme-btn:hover{transform:translateY(-1px) rotate(-12deg);border-color:var(--accent);color:var(--accent)}
   .theme-btn svg{width:18px;height:18px}
   .theme-btn .moon{display:none}
@@ -173,6 +178,98 @@ CSS = """
   [data-theme=light] .theme-btn .moon{display:block}
   @keyframes spin{to{transform:rotate(360deg)}}
   @keyframes pulse{50%{opacity:.4}}
+  /* --- Cuenta / auth / listas --- */
+  .floating-actions{position:fixed;top:14px;right:16px;z-index:120;display:flex;gap:10px;
+    align-items:center;justify-content:flex-end}
+  @media(max-width:560px){.floating-actions{top:10px;right:10px;gap:8px}}
+  .acct-btn{display:inline-flex;align-items:center;gap:8px;height:42px;padding:0 16px;
+    border-radius:12px;cursor:pointer;font-size:13px;font-weight:600;letter-spacing:.2px;
+    color:#04140d;border:0;background:linear-gradient(135deg,var(--accent),var(--accent-2));
+    box-shadow:0 6px 20px var(--accent-soft);transition:transform .15s,box-shadow .15s,filter .15s}
+  .acct-btn svg{width:17px;height:17px;stroke-width:2.2}
+  .acct-btn:hover{transform:translateY(-1px);filter:brightness(1.06);box-shadow:0 10px 28px var(--accent-soft)}
+  .acct-btn.logged{background:var(--panel);border:1px solid var(--border);color:var(--text);
+    box-shadow:0 4px 16px rgba(0,0,0,.18)}
+  .acct-btn.logged svg{color:var(--accent)}
+  .acct-btn.logged:hover{border-color:var(--accent);color:var(--accent)}
+  .acct-label{max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .admin-btn{display:inline-flex;align-items:center;gap:8px;background:var(--panel);
+    border:1px solid var(--border);color:var(--text);padding:0 15px;height:40px;border-radius:10px;
+    cursor:pointer;font-size:13px;font-weight:600;transition:transform .15s,border-color .15s,color .15s}
+  .admin-btn svg{width:16px;height:16px;color:var(--accent)}
+  .admin-btn:hover{transform:translateY(-1px);border-color:var(--accent);color:var(--accent)}
+  .admin-card{width:min(760px,100%);max-height:86vh;overflow:auto;text-align:left}
+  .admin-card .auth-avatar,.admin-card h3{margin-left:auto;margin-right:auto}
+  .admin-card h3{text-align:center}
+  .admin-users{display:flex;flex-direction:column;gap:10px;margin:6px 0 18px}
+  .user-row{border:1px solid var(--border);border-radius:12px;padding:12px;background:var(--bg)}
+  .ur-main{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .ur-main input.ur-email{flex:1;min-width:160px}
+  .user-row input,.user-row select,.admin-new input,.admin-new select{
+    background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:8px;
+    padding:8px 10px;font-size:13px;font-family:var(--mono)}
+  .user-row input:focus,.user-row select:focus{border-color:var(--accent);outline:none}
+  .ur-ver{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);cursor:pointer}
+  .ur-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:9px}
+  .ur-actions input.ur-pass{flex:1;min-width:150px}
+  .ur-actions .ur-save{background:var(--accent);color:#04140d;border:0;border-radius:8px;
+    padding:8px 14px;font-weight:700;cursor:pointer;font-size:13px}
+  .ur-actions .ur-del{background:none;border:1px solid var(--border);color:var(--orange);
+    border-radius:8px;padding:8px 11px;cursor:pointer;font-size:13px}
+  .ur-actions .ur-del:hover{border-color:var(--orange);background:rgba(217,121,26,.12)}
+  .ur-meta{margin-top:8px;font-size:11px;color:var(--faint)}
+  .ur-badge{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;
+    padding:2px 7px;border-radius:999px;background:var(--accent-soft);color:var(--accent)}
+  .admin-new{border-top:1px solid var(--border);padding-top:14px}
+  .admin-new h4{margin:0 0 10px;font-size:.95rem;color:var(--muted)}
+  .admin-new-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .admin-new-row input{flex:1;min-width:140px}
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);
+    z-index:200;display:none;align-items:center;justify-content:center;padding:18px}
+  .modal.open{display:flex}
+  .modal-card{position:relative;background:var(--panel);border:1px solid var(--border);
+    border-radius:16px;padding:28px;width:min(380px,100%);box-shadow:0 24px 60px rgba(0,0,0,.5)}
+  .modal-x{position:absolute;top:12px;right:14px;background:none;border:0;color:var(--muted);
+    font-size:24px;line-height:1;cursor:pointer}
+  .auth-avatar{width:50px;height:50px;border-radius:15px;display:grid;place-items:center;margin:2px 0 14px;
+    background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#04140d;box-shadow:0 10px 26px var(--accent-soft)}
+  .auth-avatar svg{width:25px;height:25px;stroke-width:2.2}
+  .modal-card h3{margin:0 0 6px;font-size:1.3rem;color:var(--text);font-weight:700}
+  .auth-msg{min-height:18px;font-size:13px;margin:0 0 14px;color:var(--orange)}
+  .auth-msg.ok{color:var(--green)}
+  .auth-form{display:flex;flex-direction:column;gap:10px}
+  .auth-form input{background:var(--bg);color:var(--text);border:1px solid var(--border);
+    border-radius:10px;padding:11px 13px;font-size:14px;font-family:var(--mono)}
+  .auth-form input:focus{border-color:var(--accent);outline:none}
+  .auth-go{background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#04140d;
+    border:0;border-radius:10px;padding:11px;font-weight:700;cursor:pointer;font-size:14px}
+  .auth-go:hover{transform:translateY(-1px)}
+  .auth-links{display:flex;justify-content:space-between;gap:10px;margin-top:4px}
+  .auth-links a{color:var(--muted);font-size:12px;text-decoration:none}
+  .auth-links a:hover{color:var(--accent)}
+  #list-filter{max-width:200px}
+  .tolist{position:absolute;top:8px;left:36px;background:none;border:0;cursor:pointer;padding:2px;
+    color:var(--muted);opacity:0;transition:opacity .15s,transform .15s,color .15s}
+  .card:hover .tolist{opacity:.85}
+  .tolist:hover{color:var(--accent);transform:scale(1.2)}
+  .tolist svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8}
+  .list-menu{position:fixed;z-index:210;background:var(--panel);border:1px solid var(--border);
+    border-radius:12px;padding:8px;min-width:200px;box-shadow:0 16px 40px rgba(0,0,0,.45);
+    display:none;flex-direction:column;gap:2px}
+  .list-menu.open{display:flex}
+  .list-menu label{display:flex;align-items:center;gap:8px;padding:7px 9px;border-radius:8px;
+    font-size:13px;cursor:pointer;color:var(--text)}
+  .list-menu label:hover{background:var(--bg)}
+  .list-menu .lm-new{display:flex;gap:6px;border-top:1px solid var(--border);margin-top:6px;padding-top:8px}
+  .list-menu .lm-new input{flex:1;min-width:0;background:var(--bg);color:var(--text);
+    border:1px solid var(--border);border-radius:8px;padding:7px 9px;font-size:13px}
+  .list-menu .lm-new button{background:var(--accent);color:#04140d;border:0;border-radius:8px;
+    padding:0 12px;font-weight:700;cursor:pointer}
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);
+    background:var(--panel);border:1px solid var(--border);color:var(--text);padding:12px 18px;
+    border-radius:12px;font-size:13px;box-shadow:0 12px 30px rgba(0,0,0,.4);z-index:300;
+    opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;max-width:90vw}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
   @keyframes fadeInUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 
   .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,140px),1fr));gap:12px;margin-bottom:22px}
@@ -458,22 +555,39 @@ function closeExpand(){
 }
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeExpand();});
 
-// ---- Favoritos (localStorage) ----
+// ---- Favoritos + cuenta (invitado=localStorage, sesión=API) ----
 const FAV_KEY='celica_favs';
+const CELICA={user:null,lists:[],listFilter:null};
 let favs=new Set(); try{favs=new Set(JSON.parse(localStorage.getItem(FAV_KEY)||'[]'));}catch(e){}
-function saveFavs(){ try{localStorage.setItem(FAV_KEY,JSON.stringify([...favs]));}catch(e){} }
+function saveFavsLocal(){ try{localStorage.setItem(FAV_KEY,JSON.stringify([...favs]));}catch(e){} }
+async function api(path,opts){
+  const r=await fetch(path,Object.assign({headers:{'Content-Type':'application/json'}},opts||{}));
+  let d={}; try{d=await r.json();}catch(e){}
+  if(!r.ok)throw new Error(d.error||('HTTP '+r.status));
+  return d;
+}
+function toast(msg){const t=document.getElementById('toast');if(!t)return;t.textContent=msg;
+  t.classList.add('show');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('show'),2600);}
 function paintFav(card){
   const id=card.getAttribute('data-fav-id'); const on=favs.has(id);
   card.classList.toggle('is-fav',on);
   const b=card.querySelector('.fav'); if(b){b.classList.toggle('on',on);}
 }
-document.querySelectorAll('.card').forEach(paintFav);
+function paintAllFavs(){document.querySelectorAll('.card').forEach(paintFav);}
+paintAllFavs();
+async function toggleFav(id){
+  const adding=!favs.has(id);
+  if(adding)favs.add(id); else favs.delete(id);
+  if(CELICA.user){
+    try{await api('/api/favorites',{method:adding?'POST':'DELETE',body:JSON.stringify({fav_id:id})});}
+    catch(e){ if(adding)favs.delete(id); else favs.add(id); toast(e.message); }
+  }else{ saveFavsLocal(); }
+}
 document.addEventListener('click',e=>{
   const b=e.target.closest('.fav'); if(!b) return;
   e.preventDefault(); e.stopPropagation();
   const card=b.closest('.card'); const id=card.getAttribute('data-fav-id');
-  if(favs.has(id))favs.delete(id); else favs.add(id);
-  saveFavs(); paintFav(card); apply();
+  toggleFav(id).then(()=>{paintFav(card);apply();});
 });
 
 // ---- Buscador / orden / filtros ----
@@ -496,7 +610,9 @@ function apply(){
       const okSrc=srcOn.has(c.getAttribute('data-fuente'));
       const okOp=!opOnly||c.getAttribute('data-op')==='1';
       const okFav=!favOnly||favs.has(c.getAttribute('data-fav-id'));
-      const show=okTerm&&okSrc&&okOp&&okFav;
+      const lf=CELICA.listFilter;
+      const okList=!lf||(lf.items&&lf.items.indexOf(c.getAttribute('data-fav-id'))>=0);
+      const show=okTerm&&okSrc&&okOp&&okFav&&okList;
       c.style.display=show?'':'none'; if(show)visible++;
     });
     const sorted=cards.slice().sort((a,b)=>{switch(key){
@@ -601,6 +717,235 @@ if(!_reduce&&matchMedia('(pointer:fine)').matches){
   addEventListener('pointermove',e=>{tx=(e.clientX/innerWidth-0.5)*18;if(raf)return;
     raf=requestAnimationFrame(()=>{document.body.style.setProperty('--px',tx.toFixed(2)+'px');raf=0;});},{passive:true});
 }
+
+// ============================ Cuenta + listas =============================
+function gv(id){const el=document.getElementById(id);return el?el.value:'';}
+
+// ---- Modal de auth ----
+function openAuth(){document.getElementById('auth-modal').classList.add('open');authView('login');}
+function closeAuth(){document.getElementById('auth-modal').classList.remove('open');}
+const AUTH_FORMS={login:'form-login',register:'form-register',verify:'form-verify',reset:'form-reset-req',resetdo:'form-reset-do'};
+const AUTH_TITLES={login:'Entrar',register:'Crear cuenta',verify:'Verifica tu email',reset:'Restablecer contraseña',resetdo:'Nueva contraseña'};
+let _pendingEmail='';
+function authMsg(m,ok){const e=document.getElementById('auth-msg');if(!e)return;e.textContent=m||'';e.classList.toggle('ok',!!ok);}
+function authView(v){
+  Object.values(AUTH_FORMS).forEach(id=>{const f=document.getElementById(id);if(f)f.style.display='none';});
+  const f=document.getElementById(AUTH_FORMS[v]);if(f)f.style.display='flex';
+  const t=document.getElementById('auth-title');if(t)t.textContent=AUTH_TITLES[v]||'Cuenta';
+  authMsg('');
+}
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeAuth();closeAdmin();}});
+
+document.getElementById('form-login').addEventListener('submit',async e=>{e.preventDefault();
+  try{const d=await api('/api/login',{method:'POST',body:JSON.stringify({email:gv('li-email').trim(),password:gv('li-pass')})});
+    CELICA.user=d.user;closeAuth();await afterLogin();toast('Hola '+d.user.email.split('@')[0]);
+  }catch(err){ if(/verificar/i.test(err.message)){_pendingEmail=gv('li-email').trim();authView('verify');authMsg('Cuenta sin verificar. Mete el código del email.');}
+    else authMsg(err.message); }
+});
+document.getElementById('form-register').addEventListener('submit',async e=>{e.preventDefault();
+  const email=gv('rg-email').trim();
+  try{await api('/api/register',{method:'POST',body:JSON.stringify({email,password:gv('rg-pass')})});
+    _pendingEmail=email;authView('verify');authMsg('Código enviado a '+email,true);
+  }catch(err){authMsg(err.message);}
+});
+document.getElementById('form-verify').addEventListener('submit',async e=>{e.preventDefault();
+  try{await api('/api/verify',{method:'POST',body:JSON.stringify({email:_pendingEmail,code:gv('vf-code').trim()})});
+    authView('login');authMsg('Cuenta verificada. Ya puedes entrar.',true);
+  }catch(err){authMsg(err.message);}
+});
+function resendCode(){
+  if(!_pendingEmail){authMsg('Escribe tu email primero');return;}
+  api('/api/resend',{method:'POST',body:JSON.stringify({email:_pendingEmail})})
+    .then(()=>authMsg('Código reenviado',true)).catch(err=>authMsg(err.message));
+}
+document.getElementById('form-reset-req').addEventListener('submit',async e=>{e.preventDefault();
+  const email=gv('rr-email').trim();
+  try{await api('/api/reset/request',{method:'POST',body:JSON.stringify({email})});
+    _pendingEmail=email;authView('resetdo');authMsg('Si el email existe, te enviamos un código.',true);
+  }catch(err){authMsg(err.message);}
+});
+document.getElementById('form-reset-do').addEventListener('submit',async e=>{e.preventDefault();
+  try{await api('/api/reset/confirm',{method:'POST',body:JSON.stringify({email:_pendingEmail,code:gv('rd-code').trim(),password:gv('rd-pass')})});
+    authView('login');authMsg('Contraseña cambiada. Entra de nuevo.',true);
+  }catch(err){authMsg(err.message);}
+});
+
+// ---- Botón de cuenta / menú ----
+let _am=null;
+function renderAuthUI(){
+  const acct=document.getElementById('acct-btn');const rb=document.getElementById('refresh-btn');
+  const ab=document.getElementById('admin-btn');
+  if(!acct)return;
+  const label=acct.querySelector('.acct-label');
+  const isAdmin=CELICA.user&&CELICA.user.role==='admin';
+  if(CELICA.user){
+    if(label)label.textContent='@'+CELICA.user.email.split('@')[0];
+    acct.classList.add('logged');acct.onclick=openAccountMenu;
+  }else{
+    if(label)label.textContent='Entrar';
+    acct.classList.remove('logged');acct.onclick=openAuth;
+  }
+  if(rb)rb.style.display=isAdmin?'':'none';
+  if(ab)ab.style.display=isAdmin?'':'none';
+}
+function openAccountMenu(){
+  if(!_am){_am=document.createElement('div');_am.className='list-menu';document.body.appendChild(_am);
+    document.addEventListener('click',e=>{if(_am.classList.contains('open')&&!_am.contains(e.target)&&e.target.id!=='acct-btn')_am.classList.remove('open');});}
+  _am.innerHTML='';
+  const info=document.createElement('div');info.style.cssText='padding:6px 9px;font-size:12px;color:var(--muted)';info.textContent=CELICA.user.email;_am.appendChild(info);
+  const mk=(txt,fn)=>{const a=document.createElement('label');a.textContent=txt;a.addEventListener('click',fn);_am.appendChild(a);};
+  mk('Cambiar contraseña',()=>{_am.classList.remove('open');openAuth();authView('reset');const i=document.getElementById('rr-email');if(i)i.value=CELICA.user.email;});
+  mk('Cerrar sesión',doLogout);
+  const acct=document.getElementById('acct-btn');const r=acct.getBoundingClientRect();
+  _am.style.top=(r.bottom+6)+'px';_am.style.left=Math.min(r.left,innerWidth-210)+'px';_am.classList.add('open');
+}
+async function doLogout(){
+  try{await api('/api/logout',{method:'POST'});}catch(e){}
+  CELICA.user=null;CELICA.lists=[];CELICA.listFilter=null;
+  favs=new Set();try{favs=new Set(JSON.parse(localStorage.getItem(FAV_KEY)||'[]'));}catch(e){}
+  document.querySelectorAll('.tolist').forEach(b=>b.remove());
+  if(_am)_am.classList.remove('open');
+  renderAuthUI();renderListFilter();paintAllFavs();apply();toast('Sesión cerrada');
+}
+
+// ---- Listas: botón por tarjeta + menú ----
+const _LIST_ICON='<svg viewBox="0 0 24 24"><line x1="8" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="20" y2="12"/><line x1="8" y1="18" x2="20" y2="18"/><circle cx="3.5" cy="6" r="1.2"/><circle cx="3.5" cy="12" r="1.2"/><circle cx="3.5" cy="18" r="1.2"/></svg>';
+function injectListButtons(){
+  if(!CELICA.user)return;
+  document.querySelectorAll('.card').forEach(card=>{
+    if(card.querySelector('.tolist'))return;
+    const b=document.createElement('button');
+    b.className='tolist';b.title='Añadir a lista';b.setAttribute('aria-label','Añadir a lista');b.innerHTML=_LIST_ICON;
+    b.addEventListener('click',ev=>{ev.preventDefault();ev.stopPropagation();openListMenu(card,b);});
+    card.appendChild(b);
+  });
+}
+let _lm=null;
+function listMenuEl(){
+  if(_lm)return _lm;
+  _lm=document.createElement('div');_lm.className='list-menu';document.body.appendChild(_lm);
+  document.addEventListener('click',e=>{if(_lm.classList.contains('open')&&!_lm.contains(e.target)&&!e.target.closest('.tolist'))_lm.classList.remove('open');});
+  return _lm;
+}
+function openListMenu(card,btn){
+  const menu=listMenuEl();const id=card.getAttribute('data-fav-id');menu.innerHTML='';
+  if(!CELICA.lists.length){const p=document.createElement('div');p.style.cssText='padding:6px 9px;font-size:12px;color:var(--muted)';p.textContent='Crea tu primera lista 👇';menu.appendChild(p);}
+  CELICA.lists.forEach(l=>{
+    const lab=document.createElement('label');
+    const cb=document.createElement('input');cb.type='checkbox';cb.checked=l.items.indexOf(id)>=0;
+    cb.addEventListener('change',()=>toggleListItem(l,id,cb));
+    lab.appendChild(cb);lab.appendChild(document.createTextNode(' '+l.name));menu.appendChild(lab);
+  });
+  const nw=document.createElement('div');nw.className='lm-new';
+  const inp=document.createElement('input');inp.placeholder='nueva lista…';inp.maxLength=80;
+  const ok=document.createElement('button');ok.textContent='+';ok.title='Crear lista';
+  const create=async()=>{const name=inp.value.trim();if(!name)return;
+    try{const d=await api('/api/lists',{method:'POST',body:JSON.stringify({name})});
+      CELICA.lists.push({id:d.id,name:name,items:[]});inp.value='';renderListFilter();openListMenu(card,btn);
+    }catch(e){toast(e.message);}};
+  ok.addEventListener('click',create);
+  inp.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();create();}});
+  nw.appendChild(inp);nw.appendChild(ok);menu.appendChild(nw);
+  const r=btn.getBoundingClientRect();
+  menu.style.top=(r.bottom+6)+'px';menu.style.left=Math.max(8,Math.min(r.left,innerWidth-220))+'px';
+  menu.classList.add('open');
+}
+async function toggleListItem(l,id,cb){
+  const adding=cb.checked;
+  try{await api('/api/lists/'+l.id+'/items',{method:adding?'POST':'DELETE',body:JSON.stringify({fav_id:id})});
+    if(adding){if(l.items.indexOf(id)<0)l.items.push(id);}else{l.items=l.items.filter(x=>x!==id);}
+    renderListFilter();
+    if(CELICA.listFilter&&CELICA.listFilter.id===l.id)apply();
+  }catch(e){cb.checked=!adding;toast(e.message);}
+}
+function renderListFilter(){
+  const sel=document.getElementById('list-filter');if(!sel)return;
+  if(!CELICA.user||!CELICA.lists.length){sel.style.display='none';CELICA.listFilter=null;return;}
+  const cur=sel.value;
+  sel.innerHTML='<option value="">— todas las listas —</option>'+
+    CELICA.lists.map(l=>'<option value="'+l.id+'">'+l.name.replace(/</g,'&lt;')+' ('+l.items.length+')</option>').join('');
+  sel.value=cur;sel.style.display='';
+}
+const _listFilterSel=document.getElementById('list-filter');
+if(_listFilterSel)_listFilterSel.addEventListener('change',()=>{
+  const v=_listFilterSel.value;
+  CELICA.listFilter=v?(CELICA.lists.find(l=>String(l.id)===v)||null):null;
+  apply();
+});
+
+// ---- Tras login: cargar favoritos + listas del servidor ----
+async function afterLogin(){
+  try{const f=await api('/api/favorites');favs=new Set(f.favorites||[]);}catch(e){}
+  try{const l=await api('/api/lists');CELICA.lists=l.lists||[];}catch(e){}
+  renderAuthUI();renderListFilter();injectListButtons();paintAllFavs();apply();
+}
+
+// ---- Panel de administración de usuarios (solo admin) ----
+function openAdmin(){const m=document.getElementById('admin-modal');if(!m)return;m.classList.add('open');loadAdminUsers();}
+function closeAdmin(){const m=document.getElementById('admin-modal');if(m)m.classList.remove('open');}
+function adminMsg(m,ok){const e=document.getElementById('admin-msg');if(e){e.textContent=m||'';e.classList.toggle('ok',!!ok);}}
+function _el(tag,cls,props){const e=document.createElement(tag);if(cls)e.className=cls;if(props)for(const k in props)e[k]=props[k];return e;}
+async function loadAdminUsers(){
+  const box=document.getElementById('admin-users');if(!box)return;
+  box.textContent='Cargando…';adminMsg('');
+  try{const d=await api('/api/admin/users');renderAdminUsers(d.users||[]);}
+  catch(e){box.textContent='';adminMsg(e.message);}
+}
+function renderAdminUsers(users){
+  const box=document.getElementById('admin-users');box.innerHTML='';
+  if(!users.length){box.textContent='Sin usuarios todavía.';return;}
+  users.forEach(u=>{
+    const row=_el('div','user-row');
+    const main=_el('div','ur-main');
+    const email=_el('input','ur-email',{type:'email',value:u.email});
+    const role=_el('select','ur-role');
+    ['user','admin'].forEach(r=>{const o=_el('option',null,{value:r,textContent:r});if(u.role===r)o.selected=true;role.appendChild(o);});
+    const verLab=_el('label','ur-ver');
+    const ver=_el('input',null,{type:'checkbox',checked:u.verified});
+    verLab.appendChild(ver);verLab.appendChild(document.createTextNode(' verificado'));
+    main.appendChild(email);main.appendChild(role);main.appendChild(verLab);
+    if(CELICA.user&&CELICA.user.id===u.id)main.appendChild(_el('span','ur-badge',{textContent:'tú'}));
+    const acts=_el('div','ur-actions');
+    const pass=_el('input','ur-pass',{type:'text',placeholder:'nueva contraseña (opcional)'});
+    const save=_el('button','ur-save',{textContent:'Guardar'});
+    const del=_el('button','ur-del',{textContent:'Eliminar'});
+    acts.appendChild(pass);acts.appendChild(save);acts.appendChild(del);
+    const meta=_el('div','ur-meta',{textContent:'#'+u.id+' · '+u.n_fav+' favoritos · '+u.n_lists+' listas · alta '+(u.created_at||'').slice(0,10)});
+    row.appendChild(main);row.appendChild(acts);row.appendChild(meta);
+    save.addEventListener('click',async()=>{
+      save.disabled=true;adminMsg('');
+      try{
+        await api('/api/admin/users/'+u.id+'/email',{method:'POST',body:JSON.stringify({email:email.value.trim()})});
+        await api('/api/admin/users/'+u.id+'/role',{method:'POST',body:JSON.stringify({role:role.value})});
+        await api('/api/admin/users/'+u.id+'/verified',{method:'POST',body:JSON.stringify({verified:ver.checked})});
+        if(pass.value.trim())await api('/api/admin/users/'+u.id+'/password',{method:'POST',body:JSON.stringify({password:pass.value})});
+        adminMsg('Guardado ✓',true);loadAdminUsers();
+      }catch(e){adminMsg(e.message);save.disabled=false;}
+    });
+    del.addEventListener('click',async()=>{
+      if(!confirm('¿Eliminar a '+u.email+'? Se borran sus favoritos y listas.'))return;
+      try{await api('/api/admin/users/'+u.id,{method:'DELETE'});adminMsg('Usuario eliminado',true);loadAdminUsers();}
+      catch(e){adminMsg(e.message);}
+    });
+    box.appendChild(row);
+  });
+}
+async function adminCreate(){
+  const email=gv('nu-email').trim(),pass=gv('nu-pass'),role=gv('nu-role');
+  if(!email||!pass){adminMsg('Email y contraseña requeridos');return;}
+  try{await api('/api/admin/users',{method:'POST',body:JSON.stringify({email:email,password:pass,role:role})});
+    const ie=document.getElementById('nu-email'),ip=document.getElementById('nu-pass');
+    if(ie)ie.value='';if(ip)ip.value='';
+    adminMsg('Usuario creado ✓',true);loadAdminUsers();
+  }catch(e){adminMsg(e.message);}
+}
+
+// ---- Arranque: ¿hay sesión? ----
+(async function(){
+  try{const me=await api('/api/me');CELICA.user=me.user;}catch(e){CELICA.user=null;}
+  if(CELICA.user){await afterLogin();}
+  else{renderAuthUI();renderListFilter();}
+})();
 """
 
 
@@ -783,8 +1128,14 @@ def main():
     parts.append(f'<div class="sub">Última actualización: {today} · {len(latest)} anuncios · {html.escape(src_summary)}</div>\n')
 
     parts.append('<div class="toolbar">\n')
-    parts.append(f'  <button id="refresh-btn" class="refresh-btn" onclick="doRefresh()">{ICON_REFRESH}<span class="btxt">Refrescar ahora</span></button>\n')
+    parts.append(f'  <button id="refresh-btn" class="refresh-btn" style="display:none" onclick="doRefresh()">{ICON_REFRESH}<span class="btxt">Refrescar ahora</span></button>\n')
+    parts.append(f'  <button id="admin-btn" class="admin-btn" style="display:none" onclick="openAdmin()">{ICON_USERS}<span>Usuarios</span></button>\n')
     parts.append('  <span id="auto-pill" class="pill"><span id="auto-dot" class="dot"></span><span> auto-scrape</span></span>\n')
+    parts.append('</div>\n')
+
+    # Acciones flotantes (fixed, bajan con el scroll): cuenta + tema
+    parts.append('<div class="floating-actions">\n')
+    parts.append(f'  <button id="acct-btn" class="acct-btn" onclick="openAuth()">{ICON_USER}<span class="acct-label">Entrar</span></button>\n')
     parts.append(f'  <button id="theme-btn" class="theme-btn" title="Cambiar tema" aria-label="Cambiar tema">{ICON_SUN}{ICON_MOON}</button>\n')
     parts.append('</div>\n')
 
@@ -793,6 +1144,69 @@ def main():
                  '<span id="logs-title" class="title">Logs</span></span>'
                  '<button class="close" onclick="document.getElementById(\'logs-panel\').classList.remove(\'active\')">×</button></div>\n')
     parts.append('  <div id="refresh-log" class="refresh-log"></div>\n</aside>\n')
+
+    # --- Modal de cuenta (login / registro / verificación / reset) ---
+    parts.append(f'''<div id="auth-modal" class="modal" onclick="if(event.target===this)closeAuth()">
+  <div class="modal-card">
+    <button class="modal-x" onclick="closeAuth()" aria-label="Cerrar">×</button>
+    <div class="auth-avatar">{ICON_USER}</div>
+    <h3 id="auth-title">Entrar</h3>
+    <p id="auth-msg" class="auth-msg"></p>
+    <form id="form-login" class="auth-form" autocomplete="on">
+      <input type="email" id="li-email" placeholder="email" autocomplete="email" required>
+      <input type="password" id="li-pass" placeholder="contraseña" autocomplete="current-password" required>
+      <button type="submit" class="auth-go">Entrar</button>
+      <div class="auth-links">
+        <a href="#" onclick="authView('register');return false">Crear cuenta</a>
+        <a href="#" onclick="authView('reset');return false">Olvidé mi contraseña</a>
+      </div>
+    </form>
+    <form id="form-register" class="auth-form" style="display:none" autocomplete="on">
+      <input type="email" id="rg-email" placeholder="email" autocomplete="email" required>
+      <input type="password" id="rg-pass" placeholder="contraseña (mín. 8)" autocomplete="new-password" required>
+      <button type="submit" class="auth-go">Crear cuenta</button>
+      <div class="auth-links"><a href="#" onclick="authView('login');return false">Ya tengo cuenta</a></div>
+    </form>
+    <form id="form-verify" class="auth-form" style="display:none">
+      <input type="text" id="vf-code" placeholder="código de 6 dígitos" inputmode="numeric" maxlength="6" required>
+      <button type="submit" class="auth-go">Verificar</button>
+      <div class="auth-links"><a href="#" onclick="resendCode();return false">Reenviar código</a></div>
+    </form>
+    <form id="form-reset-req" class="auth-form" style="display:none" autocomplete="on">
+      <input type="email" id="rr-email" placeholder="email" autocomplete="email" required>
+      <button type="submit" class="auth-go">Enviar código</button>
+      <div class="auth-links"><a href="#" onclick="authView('login');return false">Volver</a></div>
+    </form>
+    <form id="form-reset-do" class="auth-form" style="display:none">
+      <input type="text" id="rd-code" placeholder="código de 6 dígitos" inputmode="numeric" maxlength="6" required>
+      <input type="password" id="rd-pass" placeholder="nueva contraseña (mín. 8)" autocomplete="new-password" required>
+      <button type="submit" class="auth-go">Cambiar contraseña</button>
+    </form>
+  </div>
+</div>
+<div id="toast" class="toast"></div>
+''')
+
+    # --- Modal de administración de usuarios (solo admin) ---
+    parts.append(f'''<div id="admin-modal" class="modal" onclick="if(event.target===this)closeAdmin()">
+  <div class="modal-card admin-card">
+    <button class="modal-x" onclick="closeAdmin()" aria-label="Cerrar">×</button>
+    <div class="auth-avatar">{ICON_USERS}</div>
+    <h3>Gestión de usuarios</h3>
+    <p id="admin-msg" class="auth-msg"></p>
+    <div id="admin-users" class="admin-users"></div>
+    <div class="admin-new">
+      <h4>Crear usuario</h4>
+      <div class="admin-new-row">
+        <input id="nu-email" type="email" placeholder="email" autocomplete="off">
+        <input id="nu-pass" type="text" placeholder="contraseña (mín. 8)" autocomplete="off">
+        <select id="nu-role"><option value="user">user</option><option value="admin">admin</option></select>
+        <button class="auth-go" onclick="adminCreate()">Crear</button>
+      </div>
+    </div>
+  </div>
+</div>
+''')
 
     parts.append(f'<div class="stats">{stats_html}</div>\n')
 
@@ -818,6 +1232,7 @@ def main():
                  '<label><input type="checkbox" id="only-op"> solo oportunidades</label>'
                  '<label><input type="checkbox" id="only-fav"> favoritos (<span id="fav-count">0</span>)</label>'
                  '</span>\n')
+    parts.append('  <select id="list-filter" style="display:none"><option value="">— todas las listas —</option></select>\n')
     parts.append('</div>\n')
 
     parts.append('<section><h2 class="reveal"><span class="hdot t"></span><span>Rango objetivo 2002-2006</span>'
