@@ -408,6 +408,18 @@ CSS = """
     .price{font-size:1.35rem}
   }
   @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+  /* ---- Checkboxes y selects custom (al final: ganan en orden) ---- */
+  input[type=checkbox]{appearance:none;-webkit-appearance:none;margin:0;flex:0 0 auto;
+    width:18px;height:18px;border:1.5px solid var(--line-2);border-radius:5px;background:var(--bg);
+    cursor:pointer;position:relative;vertical-align:middle;transition:background .15s,border-color .15s}
+  input[type=checkbox]:hover{border-color:var(--accent)}
+  input[type=checkbox]:checked{background:var(--accent);border-color:var(--accent)}
+  input[type=checkbox]:checked::after{content:"";position:absolute;left:5px;top:2px;width:4px;height:8px;
+    border:solid #04140d;border-width:0 2px 2px 0;transform:rotate(45deg)}
+  input[type=checkbox]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .controls select,.user-row select,.admin-new select,#list-filter{appearance:none;-webkit-appearance:none;
+    padding-right:30px;background-repeat:no-repeat;background-position:right 10px center;
+    background-image:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>")}
 """
 
 JS_LOGIC = r"""
@@ -790,7 +802,7 @@ function renderAuthUI(){
 }
 function openAccountMenu(){
   if(!_am){_am=document.createElement('div');_am.className='list-menu';document.body.appendChild(_am);
-    document.addEventListener('click',e=>{if(_am.classList.contains('open')&&!_am.contains(e.target)&&e.target.id!=='acct-btn')_am.classList.remove('open');});}
+    document.addEventListener('click',e=>{if(_am.classList.contains('open')&&!_am.contains(e.target)&&!e.target.closest('#acct-btn'))_am.classList.remove('open');});}
   _am.innerHTML='';
   const info=document.createElement('div');info.style.cssText='padding:6px 9px;font-size:12px;color:var(--muted)';info.textContent=CELICA.user.email;_am.appendChild(info);
   const mk=(txt,fn)=>{const a=document.createElement('label');a.textContent=txt;a.addEventListener('click',fn);_am.appendChild(a);};
