@@ -89,6 +89,52 @@ def init(conn):
             PRIMARY KEY (key, fecha)
         )""",
         "CREATE INDEX IF NOT EXISTS idx_obs_fecha ON observations(fecha)",
+        # --- Multiusuario --------------------------------------------------
+        """CREATE TABLE IF NOT EXISTS users (
+            id            SERIAL PRIMARY KEY,
+            email         TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
+            role          TEXT NOT NULL DEFAULT 'user',
+            verified      BOOLEAN NOT NULL DEFAULT FALSE,
+            created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )""",
+        """CREATE TABLE IF NOT EXISTS sessions (
+            token      TEXT PRIMARY KEY,
+            user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )""",
+        """CREATE TABLE IF NOT EXISTS verification_codes (
+            id         SERIAL PRIMARY KEY,
+            email      TEXT NOT NULL,
+            code       TEXT NOT NULL,
+            kind       TEXT NOT NULL DEFAULT 'verify',
+            expires_at TIMESTAMPTZ NOT NULL,
+            used       BOOLEAN NOT NULL DEFAULT FALSE,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )""",
+        # favoritos / listas referencian el anuncio por su `fav_id` (la URL,
+        # igual que el viejo localStorage). Texto suelto SIN FK a listings: así
+        # un favorito sobrevive aunque el anuncio desaparezca del mercado.
+        """CREATE TABLE IF NOT EXISTS favorites (
+            user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            fav_id     TEXT NOT NULL,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            PRIMARY KEY (user_id, fav_id)
+        )""",
+        """CREATE TABLE IF NOT EXISTS lists (
+            id         SERIAL PRIMARY KEY,
+            user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            name       TEXT NOT NULL,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )""",
+        """CREATE TABLE IF NOT EXISTS list_items (
+            list_id    INTEGER NOT NULL REFERENCES lists(id) ON DELETE CASCADE,
+            fav_id     TEXT NOT NULL,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            PRIMARY KEY (list_id, fav_id)
+        )""",
+        "CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id)",
+        "CREATE INDEX IF NOT EXISTS idx_vcodes_email ON verification_codes(email)",
     ]
     for s in stmts:
         conn.execute(s)
@@ -230,6 +276,86 @@ def maybe_import_csv(conn, path=None):
     if not os.path.exists(path):
         return 0
     return import_csv(conn, path)
+
+
+# --------------------------------------------------- favoritos / listas ----
+
+def get_favorites(conn, user_id):
+    """Lista de fav_id (URLs) favoriteadas por el usuario."""
+    cur = conn.execute(
+        "SELECT fav_id FROM favorites WHERE user_id = %s ORDER BY created_at", (user_id,))
+    return [r["fav_id"] for r in cur.fetchall()]
+
+
+def add_favorite(conn, user_id, fav_id):
+    conn.execute("""
+        INSERT INTO favorites (user_id, fav_id) VALUES (%s, %s)
+        ON CONFLICT DO NOTHING
+    """, (user_id, fav_id))
+    conn.commit()
+
+
+def remove_favorite(conn, user_id, fav_id):
+    conn.execute(
+        "DELETE FROM favorites WHERE user_id = %s AND fav_id = %s", (user_id, fav_id))
+    conn.commit()
+
+
+def get_lists(conn, user_id):
+    """Listas del usuario con sus items (fav_id) agregados."""
+    cur = conn.execute("""
+        SELECT l.id, l.name,
+               COALESCE(ARRAY_AGG(li.fav_id) FILTER (WHERE li.fav_id IS NOT NULL), '{}') AS items
+        FROM lists l LEFT JOIN list_items li ON li.list_id = l.id
+        WHERE l.user_id = %s
+        GROUP BY l.id, l.name
+        ORDER BY l.created_at
+    """, (user_id,))
+    return [{"id": r["id"], "name": r["name"], "items": list(r["items"])}
+            for r in cur.fetchall()]
+
+
+def create_list(conn, user_id, name):
+    r = conn.execute(
+        "INSERT INTO lists (user_id, name) VALUES (%s, %s) RETURNING id",
+        (user_id, name)).fetchone()
+    conn.commit()
+    return r["id"]
+
+
+def delete_list(conn, user_id, list_id):
+    """Borra la lista solo si pertenece al usuario. Devuelve filas afectadas."""
+    cur = conn.execute(
+        "DELETE FROM lists WHERE id = %s AND user_id = %s", (list_id, user_id))
+    conn.commit()
+    return cur.rowcount
+
+
+def _owns_list(conn, user_id, list_id):
+    return conn.execute(
+        "SELECT 1 FROM lists WHERE id = %s AND user_id = %s",
+        (list_id, user_id)).fetchone() is not None
+
+
+def add_list_item(conn, user_id, list_id, fav_id):
+    """Añade un anuncio a una lista propia. Devuelve False si no es del usuario."""
+    if not _owns_list(conn, user_id, list_id):
+        return False
+    conn.execute("""
+        INSERT INTO list_items (list_id, fav_id) VALUES (%s, %s)
+        ON CONFLICT DO NOTHING
+    """, (list_id, fav_id))
+    conn.commit()
+    return True
+
+
+def remove_list_item(conn, user_id, list_id, fav_id):
+    if not _owns_list(conn, user_id, list_id):
+        return False
+    conn.execute(
+        "DELETE FROM list_items WHERE list_id = %s AND fav_id = %s", (list_id, fav_id))
+    conn.commit()
+    return True
 
 
 if __name__ == "__main__":

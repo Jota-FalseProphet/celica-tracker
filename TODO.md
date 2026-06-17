@@ -1,22 +1,25 @@
 # TODO · celica-tracker
 
-## Multiusuario (planificado — NO implementado)
+## Multiusuario (nivel 1 — ✅ IMPLEMENTADO)
 
-Objetivo: convertir el dashboard (hoy single-shared, sin cuentas) en multiusuario
-"bien". El reto real no es el login, es generalizar el scraping sin que nos
-baneen. Ver discusión de niveles abajo.
+El dashboard ya es multiusuario. Backend migrado a **FastAPI** (`app.py`,
+`uvicorn app:app`). Auth por cookie httponly, PBKDF2, verificación de email y
+reset de contraseña vía **Resend** (`email_send.py`, transporte enchufable a SMTP
+para el mailserver propio). El reto de generalizar el scraping (nivel 3) sigue
+pendiente; ver abajo.
 
-### Requisitos fijados
-- [ ] **Cuentas de usuario**: registro/login, hash de contraseñas (passlib),
-      sesiones (cookies seguras) o JWT.
-- [ ] **Roles**: al menos `admin` y `user`. Debe existir **un admin**.
-- [ ] **Botón "Refrescar ahora" solo para admin**: el scrape manual
-      (`POST /api/scrape`) debe estar **protegido por auth y restringido al rol
-      admin**. Para `user` el botón se oculta/deshabilita y el endpoint devuelve
-      403. El **auto-scrape en background sigue corriendo igual** (es del
-      servidor, no depende del usuario).
-- [ ] **Favoritos por usuario**: mover de `localStorage` → BD (tabla por usuario),
-      sincronizados entre dispositivos.
+### Requisitos fijados — hechos
+- [x] **Cuentas de usuario**: registro/login, PBKDF2, sesiones por cookie
+      httponly + tabla `sessions`. Verificación de email + reset de contraseña.
+- [x] **Roles** `admin`/`user` (columna `users.role`). Admin se asciende a mano:
+      `UPDATE users SET role='admin' WHERE email='…'`.
+- [x] **Botón "Refrescar ahora" solo admin**: `POST /api/scrape` → 401 anon /
+      403 user; el botón solo se muestra a admin. Auto-scrape en background intacto.
+- [x] **Favoritos por usuario** en BD (`favorites`), sincronizados; invitado sigue
+      usando `localStorage`.
+- [x] **Listas nombradas** por usuario (`lists`/`list_items`) + filtro por lista.
+- [x] **Panel admin** de gestión de usuarios (listar/crear/editar email/cambiar
+      contraseña/rol/verificado/borrar) en `/api/admin/*`, solo admin.
 
 ### Refactor transversal (necesario a cualquier nivel)
 - [ ] Migrar `serve.py` (http.server de stdlib) → **FastAPI** (mismo stack que
